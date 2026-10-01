@@ -223,7 +223,7 @@ body.menu-open .hud, body.menu-open .touch { visibility: hidden; }
 .scr-title {
   margin: 0; font-family: var(--font-display); font-weight: 400;
   font-size: clamp(42px, 6.4vw, 76px); line-height: .95; letter-spacing: -.01em;
-  text-wrap: balance;
+  text-wrap: balance; padding-bottom: .08em;
 }
 .lead { margin: 0; max-width: 42ch; font-size: 17px; line-height: 1.5; color: var(--m-ink-soft); }
 .note { margin: 0; max-width: 52ch; font-size: 14px; line-height: 1.55; color: var(--m-ink-soft); }
@@ -320,6 +320,35 @@ kbd {
 }
 @media (prefers-reduced-motion: reduce) { .scr-kanji.seal { animation: none; } }
 
+/* ---------- Manette : boutons affichés à la place des touches ---------- */
+body:not(.has-pad) .pad-only { display: none !important; }
+body.has-pad .kb-only { display: none !important; }
+.pad-btn {
+  display: inline-grid; place-items: center; box-sizing: border-box;
+  min-width: 1.8em; height: 1.8em; padding: 0 .2em; margin: 1px;
+  border-radius: 999px; background: #2a221c; color: #f4ecd8;
+  font: 700 .82em/1 var(--font-body); vertical-align: middle;
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, .45);
+}
+.pad-btn.wide { border-radius: .45em; padding: 0 .5em; font-size: .72em; }
+.icon-btn .pad-btn { font-size: 10px; height: 16px; min-width: 16px; margin: -2px 0; }
+.pad-hint { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 0; font-size: 14px; color: var(--m-ink-soft); }
+.pad-hint > span { display: inline-flex; align-items: center; gap: 7px; }
+.controls th.pad { color: var(--m-ink-soft); }
+.controls .pad-txt { font-size: 13px; color: var(--m-ink-soft); }
+body.has-pad .controls th.pad { color: var(--m-ink); }
+
+/* ---------- Stats de fin de match ---------- */
+.stats { width: 100%; border-collapse: collapse; font-size: 15px; font-variant-numeric: tabular-nums; }
+.stats th { font-family: var(--font-display); font-weight: 400; font-size: 17px; text-align: right; padding: 0 8px 8px; }
+.stats th.e { color: var(--m-shu); } .stats th.w { color: var(--blue); }
+.stats td { padding: 7px 8px; border-top: 1px solid rgba(28, 19, 13, .32); text-align: right; }
+.stats td:first-child { text-align: left; color: var(--m-ink-soft); }
+
+/* ---------- Ralenti : le bandeau s'efface ---------- */
+body.replaying .hud, body.replaying .touch { visibility: hidden; }
+@media (max-width: 720px) { .controls { font-size: 13px; } .controls td, .controls th { padding-left: 4px; padding-right: 4px; } }
+
 @media (max-width: 480px) {
   .hud-btns { flex-direction: column; gap: 3px; }
   .hud-btns .icon-btn { margin-top: 0; padding: 3px 6px; font-size: 10px; }
@@ -345,7 +374,7 @@ kbd {
     <span class="round" id="roundNo">1</span>
     <span class="status" id="status"></span>
     <div class="hud-btns">
-      <button class="icon-btn" id="pauseBtn" type="button">Pause · Échap</button>
+      <button class="icon-btn" id="pauseBtn" type="button">Pause<span class="kb-only"> · Échap</span><span class="pad-only"> <span class="pad-btn" data-pad="9">Menu</span></span></button>
       <button class="icon-btn" id="muteBtn" type="button" aria-pressed="false" title="Son (touche M)">Son</button>
     </div>
   </div>
@@ -460,10 +489,13 @@ function tryDash(S, i) {
   const p = S.p[i];
   if (p.cd > 0 || p.guard || p.stun > 0) return;
   let imp = DASH_IMPULSE;
-  if (!p.usedTachiai && S.roundT <= TACHIAI_WINDOW && !p.matta) {   // départ parfait
+  const perfect = !p.usedTachiai && S.roundT <= TACHIAI_WINDOW && !p.matta;
+  if (perfect) {                                   // départ parfait
     imp *= TACHIAI_BONUS;
     S.events.push({ type: 'tachiai', who: i });
   }
+  // temps de réaction : premier dash de la manche, peu après le signal
+  if (!p.usedTachiai && !p.matta && S.roundT < 1.5) S.events.push({ type: 'reaction', who: i, t: S.roundT, perfect });
   p.usedTachiai = true;
   p.vx += Math.cos(p.face) * imp; p.vy += Math.sin(p.face) * imp;
   p.cd = DASH_CD; p.dashT = DASH_T;
@@ -549,7 +581,7 @@ function collide(S) {
   blocked(S, 0, 1, nx, ny); blocked(S, 1, 0, -nx, -ny);
   const force = Math.abs(rv);
   if (force > 250) { a.squash = b.squash = 1; }
-  S.events.push({ type: 'hit', force, x: a.x + nx * a.r, y: a.y + ny * a.r });
+  S.events.push({ type: 'hit', force, x: a.x + nx * a.r, y: a.y + ny * a.r, dash: [a.dashT > 0, b.dashT > 0] });
 }
 
 const isOut = (S, p) => Math.hypot(p.x - C, p.y - C) > S.ring + p.r * 0.35;
@@ -950,13 +982,17 @@ const Sound = {
 };
 
 // --- État de présentation ---
+const newStats = () => ({ dash: 0, dashHit: 0, block: 0, feint: 0, matta: 0, best: null });
 const G = {
-  screen: 'menu',       // 'menu' (démo IA vs IA derrière le menu) | 'match'
+  screen: 'menu',       // 'menu' | 'match'
   mode: null,           // 'versus' | 'ai' | 'career'
   S: null, paused: false, acc: 0, last: performance.now(),
   t: 0, shake: 0, cheer: 0, flash: null, particles: [], zabuton: [],
   names: ['Rouge', 'Bleu'], skins: ['rouge', 'blue'], opp: null, focusX: C, focusY: C,
   down: [false, false],   // un joueur a été mené 0–(N-1) : sa victoire serait un exploit
+  stats: [newStats(), newStats()], dashOpen: [false, false], labels: [],
+  rec: [],                // dernières secondes de la manche, image par image, pour le ralenti
+  replay: null, back: null, padFamily: null,
 };
 
 function burst(x, y, n, color) {
@@ -967,53 +1003,78 @@ function burst(x, y, n, color) {
 }
 function setFlash(text, color = '#efe3c8', t = 1) { G.flash = { text, color, t }; }
 
-/** Les événements de la simu deviennent effets visuels et sons. */
-function handleEvents(S, live) {
+const fmtSec = t => `${t.toFixed(2).replace('.', ',')} s`;
+
+/** Effets visuels et sons d'un événement ; rejoués tels quels pendant le ralenti. */
+const VFX = new Set(['dash', 'feint', 'block', 'hit', 'roundWin']);
+function playVfx(e) {
+  switch (e.type) {
+    case 'dash': burst(e.x, e.y, 8, '#e8d2a4'); Sound.whoosh(0.28); break;
+    case 'feint': burst(e.x, e.y, 8, '#e8d2a4'); Sound.whoosh(0.12); break;
+    case 'block': burst(e.x, e.y, 14, '#fff3c4'); Sound.block(); break;
+    case 'hit':
+      if (e.force > 250) {
+        G.shake = Math.min(18, e.force / 45);
+        burst(e.x, e.y, Math.min(18, e.force / 40 | 0), '#f3e6c9');
+        Sound.hit(e.force);
+      }
+      if (e.force > 650) G.cheer = Math.max(G.cheer, 0.7);
+      break;
+    case 'roundWin': G.cheer = 2.4; G.shake = 20; burst(e.x, e.y, 30, '#e8d2a4'); Sound.thud(); break;
+  }
+}
+
+/** Temps de réaction au départ : étiquette au-dessus du lutteur, record personnel pour les humains. */
+function onReaction(e) {
+  const st = G.stats[e.who];
+  st.best = st.best == null ? e.t : Math.min(st.best, e.t);
+  let record = false;
+  if (!G.S.ai[e.who]) {
+    if (save.bestReact != null && e.t < save.bestReact) record = true;
+    if (save.bestReact == null || e.t < save.bestReact) { save.bestReact = e.t; persist(); }
+  }
+  G.labels = G.labels.filter(l => l.who !== e.who);
+  G.labels.push({ who: e.who, text: fmtSec(e.t), sub: record ? 'Record !' : e.perfect ? 'Tachiai parfait' : null,
+    hot: record || e.perfect, t: 1.8 });
+}
+
+/** Les événements de la simu deviennent effets, sons, stats. Renvoie les effets du tick (pour le ralenti). */
+function handleEvents(S) {
+  const fx = [];
   for (const e of S.events) {
     const pc = e.who === 0 ? COLORS.red : COLORS.blue;
+    if (VFX.has(e.type)) { playVfx(e); fx.push(e); }
     switch (e.type) {
       case 'roundStart':
-        G.zabuton.length = 0;
-        if (live) { Sound.taiko(0, 70, 0.5); Sound.taiko(0.18, 70, 0.35); }
+        G.zabuton.length = 0; G.rec.length = 0; G.labels = [];
+        Sound.taiko(0, 70, 0.5); Sound.taiko(0.18, 70, 0.35);
         break;
       case 'hakkeyoi':
-        if (live) { setFlash('Hakkeyoi !', '#efe3c8', 0.7); Sound.hyoshigi(); Sound.taiko(0.02, 90, 0.7); }
+        setFlash('Hakkeyoi !', '#efe3c8', 0.7); Sound.hyoshigi(); Sound.taiko(0.02, 90, 0.7);
         break;
       case 'matta':
-        if (live) { setFlash(`Matta ! ${G.names[e.who]}`, pc, 1); Sound.buzz(); }
+        setFlash(`Matta ! ${G.names[e.who]}`, pc, 1); Sound.buzz(); G.stats[e.who].matta++;
         break;
       case 'tachiai':
-        if (live) { setFlash('Tachiai parfait !', pc, 0.8); Sound.taiko(0, 110, 0.6); }
-        G.cheer = Math.max(G.cheer, 0.6);
+        Sound.taiko(0, 110, 0.6); G.cheer = Math.max(G.cheer, 0.6);
         break;
-      case 'dash':
-        burst(e.x, e.y, 8, '#e8d2a4'); if (live) Sound.whoosh(0.28); break;
-      case 'feint':
-        burst(e.x, e.y, 8, '#e8d2a4'); if (live) Sound.whoosh(0.12); break;
-      case 'block':
-        burst(e.x, e.y, 14, '#fff3c4'); if (live) { setFlash('Bloqué !', '#efe3c8', 0.6); Sound.block(); } break;
+      case 'reaction': onReaction(e); break;
+      case 'dash': G.stats[e.who].dash++; G.dashOpen[e.who] = S.tick; break;
+      case 'feint': G.stats[e.who].feint++; break;
+      case 'block': setFlash('Bloqué !', '#efe3c8', 0.6); G.stats[e.who].block++; break;
       case 'hit':
-        if (e.force > 250) {
-          G.shake = Math.min(18, e.force / 45);
-          burst(e.x, e.y, Math.min(18, e.force / 40 | 0), '#f3e6c9');
-          if (live) Sound.hit(e.force);
+        // un dash « touche » s'il y a un vrai choc dans la demi-seconde qui suit (compté une fois par dash)
+        if (e.force > 200) for (let k = 0; k < 2; k++) {
+          if (G.dashOpen[k] !== false && S.tick - G.dashOpen[k] <= SIM_HZ / 2) { G.stats[k].dashHit++; G.dashOpen[k] = false; }
         }
-        if (e.force > 650) G.cheer = Math.max(G.cheer, 0.7);
         break;
-      case 'draw':
-        if (live) setFlash('Égalité, on recommence', '#efe3c8', 1.2);
-        break;
-      case 'roundWin':
-        G.cheer = 2.4; G.shake = 20;
-        burst(e.x, e.y, 30, '#e8d2a4');
-        if (live) { setFlash(`${G.names[e.who]} marque`, pc, 1.1); Sound.thud(); updateScore(); }
-        break;
-      case 'matchWin':
-        if (live) onMatchEnd(e.who);
-        break;
+      case 'draw': setFlash('Égalité, on recommence', '#efe3c8', 1.2); break;
+      case 'roundWin': setFlash(`${G.names[e.who]} marque`, pc, 1.1); updateScore(); break;
+      case 'matchWin': onMatchEnd(e.who); break;
     }
   }
   S.events.length = 0;
+  return fx;
 }
 
 // Coussins lancés par le public lors d'un exploit
@@ -1153,32 +1214,152 @@ function drawText(text, color, size = 84, y = C - 250) {
   ctx.fillStyle = color; ctx.fillText(text, C, y);
 }
 
-function render(S, alpha, dt) {
+/** Bouton de manette dessiné dans l'arène (coordonnées du monde). */
+function drawPadGlyph(x, y, btn, r = 24) {
+  const [t, c] = PAD_GLYPHS[G.padFamily || 'xbox'][btn];
+  ctx.fillStyle = '#2a221c'; ctx.beginPath();
+  if (t.length > 1) { ctx.roundRect(x - r * 1.3, y - r, r * 2.6, r * 2, r * 0.5); } else ctx.arc(x, y, r, 0, TAU);
+  ctx.fill();
+  ctx.fillStyle = c || '#f4ecd8';
+  ctx.font = `700 ${r * 1.15}px "Zen Kaku Gothic New", sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(t, x, y + 1);
+}
+
+/** Temps de réaction affiché au-dessus du lutteur. */
+function drawLabels(S, alpha) {
+  for (const l of G.labels) {
+    const p = S.p[l.who];
+    const x = p.px + (p.x - p.px) * alpha, y = p.py + (p.y - p.py) * alpha - 100 - (1.8 - l.t) * 14;
+    ctx.globalAlpha = Math.min(1, l.t / 0.4);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = '400 46px "Dela Gothic One", "Arial Black", sans-serif';
+    ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillText(l.text, x + 3, y + 4);
+    ctx.fillStyle = l.hot ? '#ffd166' : '#f4ecd8'; ctx.fillText(l.text, x, y);
+    if (l.sub) {
+      ctx.font = '700 24px "Zen Kaku Gothic New", sans-serif';
+      ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillText(l.sub, x + 2, y - 40 + 2);
+      ctx.fillStyle = '#ffd166'; ctx.fillText(l.sub, x, y - 40);
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+/** Indice au tout premier départ : quelle touche pour le dash. */
+function drawStartHint(S) {
+  if (S.round !== 1) return;
+  const y = C - 160;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = '700 30px "Zen Kaku Gothic New", sans-serif';
+  if (G.padFamily) {
+    const label = 'Dash au signal';
+    const w = ctx.measureText(label).width;
+    ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillText(label, C - 26 + 2, y + 2);
+    ctx.fillStyle = '#efe3c8'; ctx.fillText(label, C - 26, y);
+    drawPadGlyph(C - 26 + w / 2 + 34, y, 0, 20);
+  } else {
+    const label = G.mode === 'versus' ? 'Dash au signal : Espace et Entrée' : 'Dash au signal : Espace';
+    ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillText(label, C + 2, y + 2);
+    ctx.fillStyle = '#efe3c8'; ctx.fillText(label, C, y);
+  }
+}
+
+/**
+ * cam (facultatif) : { z, fx, fy } zoome de z autour du point du monde (fx, fy), utilisé par le ralenti.
+ */
+function render(S, alpha, dt, cam) {
   const shx = G.shake > 0 ? (Math.random() - .5) * G.shake : 0, shy = G.shake > 0 ? (Math.random() - .5) * G.shake : 0;
+  const z = cam ? cam.z : 1, fx = cam ? cam.fx : C, fy = cam ? cam.fy : C;
+  const tx = V.ox + V.s * (C - z * fx) + shx * V.s, ty = V.oy + V.s * (C - z * fy) + shy * V.s;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.fillStyle = '#1a120c'; ctx.fillRect(0, 0, V.cw, V.ch);
   if (!bgCache) buildBackground();
-  if (bgCache) ctx.drawImage(bgCache, shx * V.s, shy * V.s);
-  ctx.setTransform(V.s, 0, 0, V.s, V.ox + shx * V.s, V.oy + shy * V.s);   // coordonnées du monde
+  // le fond est mis en cache en pixels écran : on lui applique le même zoom
+  if (bgCache) { ctx.setTransform(z, 0, 0, z, tx - z * V.ox, ty - z * V.oy); ctx.drawImage(bgCache, 0, 0); }
+  ctx.setTransform(V.s * z, 0, 0, V.s * z, tx, ty);   // coordonnées du monde
   ctx.imageSmoothingEnabled = true;
   drawRing(S ? S.ring : R0);
   drawCrowd();
-  if (S) {
-    const live = S === G.S;
-    const sheets = live
-      ? [skinSheet(G.skins[0]), BASE_SHEETS.blue]
-      : [BASE_SHEETS.red, BASE_SHEETS.blue];
-    drawPlayer(S.p[0], sheets[0], alpha); drawPlayer(S.p[1], sheets[1], alpha);
-  }
+  if (S) { drawPlayer(S.p[0], skinSheet(G.skins[0]), alpha); drawPlayer(S.p[1], BASE_SHEETS.blue, alpha); }
   for (const q of G.particles) {
     ctx.globalAlpha = Math.max(0, q.life * 1.6);
     ctx.fillStyle = q.color; ctx.fillRect(q.x - 3, q.y - 3, 6, 6);
   }
   ctx.globalAlpha = 1;
   drawZabuton(dt);
+  if (S && !S.view) drawLabels(S, alpha);
   ctx.setTransform(V.s, 0, 0, V.s, V.ox, V.oy);
-  if (S && S === G.S && S.phase === 'shikiri') drawText('Prêts…', '#efe3c8', 104);
-  else if (G.flash && G.screen === 'match') drawText(G.flash.text, G.flash.color, G.flash.text.length > 14 ? 72 : 84);
+  if (!S || S.view) return;
+  if (S.phase === 'shikiri') { drawText('Prêts…', '#efe3c8', 104); drawStartHint(S); }
+  else if (G.flash) drawText(G.flash.text, G.flash.color, G.flash.text.length > 14 ? 72 : 84);
+}
+
+// ---------------------------------------------------------------------
+// Ralenti du coup gagnant : relecture des dernières images enregistrées
+// ---------------------------------------------------------------------
+const REC_MAX = Math.round(3.4 * SIM_HZ);
+const snapPlayer = p => ({ ...p });
+function startReplay(done) {
+  const rec = G.rec, wi = rec.findIndex(f => f.win);
+  if (wi < 0) { done(); return; }
+  // le coup décisif : le dernier choc franc avant la sortie (sinon, la sortie elle-même)
+  let hi = wi;
+  for (let j = wi; j >= Math.max(0, wi - 1.5 * SIM_HZ); j--) if (rec[j].fx.some(e => e.type === 'hit' && e.force > 250)) { hi = j; break; }
+  const i0 = Math.max(0, hi - Math.round(0.7 * SIM_HZ)), i1 = Math.min(rec.length - 1, wi + Math.round(0.6 * SIM_HZ));
+  if (i1 - i0 < 30) { done(); return; }
+  G.replay = { i0, i1, slowFrom: Math.max(i0, hi - 18), t: 0, last: i0 - 1, done, fx: null, fy: null };
+  G.flash = null; G.labels = []; G.particles = [];
+  document.body.classList.add('replaying');
+}
+function endReplay() {
+  const R = G.replay;
+  if (!R) return;
+  G.replay = null; G.particles = []; G.shake = 0;
+  document.body.classList.remove('replaying');
+  R.done();
+}
+function updateReplay(dt) {
+  const R = G.replay, rec = G.rec;
+  const sp = R.i0 + R.t * SIM_HZ >= R.slowFrom ? 0.3 : 0.85;        // le ralenti s'enclenche juste avant le coup
+  R.t += dt * sp;
+  const k = Math.min(R.i1, R.i0 + R.t * SIM_HZ), ki = Math.floor(k);
+  for (let j = R.last + 1; j <= ki; j++) for (const e of rec[j].fx) playVfx(e);
+  R.last = Math.max(R.last, ki);
+  for (const q of G.particles) { q.x += q.vx * dt * sp; q.y += q.vy * dt * sp; q.vx *= 0.9; q.vy *= 0.9; q.life -= dt * sp; }
+  G.particles = G.particles.filter(q => q.life > 0);
+  G.shake = Math.max(0, G.shake - dt * 40);
+  G.cheer = Math.max(0, G.cheer - dt * sp);
+  const a = rec[Math.max(R.i0, ki)], b = rec[Math.min(R.i1, ki + 1)];
+  const view = { view: true, ring: b.ring, p: [0, 1].map(i => ({ ...b.p[i], px: a.p[i].x, py: a.p[i].y })) };
+  // caméra : zoom progressif sur les deux lutteurs, sans sortir du décor
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const ease = Math.min(1, R.t / 0.5), z = reduce ? 1 : 1 + 0.45 * ease * ease * (3 - 2 * ease);
+  const mx = (view.p[0].x + view.p[1].x) / 2, my = (view.p[0].y + view.p[1].y) / 2;
+  R.fx = R.fx == null ? mx : R.fx + (mx - R.fx) * Math.min(1, dt * 4);
+  R.fy = R.fy == null ? my : R.fy + (my - R.fy) * Math.min(1, dt * 4);
+  const hwx = V.cw / 2 / V.s, hwy = V.ch / 2 / V.s;
+  const fx = C + clamp(R.fx - C, -hwx * (1 - 1 / z), hwx * (1 - 1 / z));
+  const fy = C + clamp(R.fy - C, -hwy * (1 - 1 / z), hwy * (1 - 1 / z));
+  G.focusX = mx; G.focusY = my;
+  render(view, k - ki, dt * sp, { z, fx, fy });
+  // bandes de cinéma, titre, comment passer
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  const bar = Math.round(V.ch * 0.085 * Math.min(1, R.t / 0.25));
+  ctx.fillStyle = 'rgba(12,8,5,.92)';
+  ctx.fillRect(0, 0, V.cw, bar); ctx.fillRect(0, V.ch - bar, V.cw, bar);
+  if (bar > 10) {
+    const fs = Math.max(16, Math.round(bar * 0.42));
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left'; ctx.fillStyle = '#efe3c8';
+    ctx.font = `400 ${fs}px "Dela Gothic One", "Arial Black", sans-serif`;
+    ctx.fillText('Ralenti', Math.round(fs * 1.2), bar / 2);
+    ctx.textAlign = 'right'; ctx.fillStyle = 'rgba(239,227,200,.75)';
+    ctx.font = `700 ${Math.round(fs * 0.6)}px "Zen Kaku Gothic New", sans-serif`;
+    const skip = G.padFamily ? `Passer : ${PAD_GLYPHS[G.padFamily][0][0]}`
+      : matchMedia('(pointer: coarse)').matches ? 'Touche l’écran pour passer' : 'Passer : n’importe quelle touche';
+    ctx.fillText(skip, V.cw - Math.round(fs * 1.2), V.ch - bar / 2);
+  }
+  if (k >= R.i1) endReplay();
 }
 
 // --- HUD ---
@@ -1238,7 +1419,8 @@ const inPlay = () => G.screen === 'match' && !G.paused && ov.hidden && G.S && G.
 
 addEventListener('keydown', e => {
   Sound.init();
-  if (e.code === 'Escape') { togglePause(); return; }
+  if (G.replay) { e.preventDefault(); if (!e.repeat) endReplay(); return; }
+  if (e.code === 'Escape') { if (!ov.hidden && G.back) G.back(); else togglePause(); return; }
   if (e.code === 'KeyM' && !e.repeat) { toggleMute(); }
   if (!inPlay()) return;                     // menus : les touches gardent leur rôle normal
   if (ALL_GAME_CODES.has(e.code)) e.preventDefault();
@@ -1276,13 +1458,50 @@ function padState(p) {
   if (btn(p, 14)) x = -1; if (btn(p, 15)) x = 1; if (btn(p, 12)) y = -1; if (btn(p, 13)) y = 1;
   return { x, y, guard: [1, 4, 5, 6, 7].some(k => btn(p, k)) };
 }
+// Boutons affichés selon la famille de manette (position standard : 0 bas, 1 droite, 2 gauche, 3 haut)
+const PAD_GLYPHS = {
+  xbox: { 0: ['A', '#7cc35f'], 1: ['B', '#ef6a55'], 2: ['X', '#5d9bf0'], 3: ['Y', '#f0c64b'], 4: ['LB'], 5: ['RB'], 6: ['LT'], 7: ['RT'], 9: ['Menu'] },
+  ps: { 0: ['✕', '#9db4ff'], 1: ['○', '#ff8a8a'], 2: ['□', '#f1a3e0'], 3: ['△', '#6fe0c4'], 4: ['L1'], 5: ['R1'], 6: ['L2'], 7: ['R2'], 9: ['Options'] },
+  nin: { 0: ['B'], 1: ['A'], 2: ['Y'], 3: ['X'], 4: ['L'], 5: ['R'], 6: ['ZL'], 7: ['ZR'], 9: ['+'] },
+};
+function padFamily(p) {
+  const id = (p.id || '').toLowerCase();
+  if (/054c|playstation|dualsense|dualshock|wireless controller/.test(id)) return 'ps';
+  if (/057e|nintendo|pro controller|joy-con/.test(id)) return 'nin';
+  return 'xbox';
+}
+function fillPadBadge(b) {
+  const [t, c] = PAD_GLYPHS[G.padFamily || 'xbox'][b.dataset.pad];
+  b.textContent = t; b.style.color = c || '';
+  b.classList.toggle('wide', t.length > 1);
+}
+function padBadge(btnIndex) {
+  const b = el('span', 'pad-btn');
+  b.dataset.pad = btnIndex;
+  fillPadBadge(b);
+  return b;
+}
+function syncPadFamily(ps) {
+  const fam = ps.length ? padFamily(ps[0]) : null;
+  if (fam === G.padFamily) return;
+  G.padFamily = fam;
+  document.body.classList.toggle('has-pad', !!fam);
+  document.querySelectorAll('.pad-btn[data-pad]').forEach(fillPadBadge);
+}
+
 function pollPads() {
   const ps = pads();
+  syncPadFamily(ps);
   if (!ps.length) return;
-  // Menus : croix/stick pour naviguer, A pour valider, Start pour la pause
+  if (G.replay) {                                   // n'importe quel bouton principal passe le ralenti
+    for (const p of ps) if (padEdge(p, 0) || padEdge(p, 1) || padEdge(p, 9)) { endReplay(); return; }
+    return;
+  }
+  // Menus : croix/stick pour naviguer, A pour valider, B pour revenir, Start pour la pause
   for (const p of ps) {
     if (padEdge(p, 9)) togglePause();
     if (!ov.hidden) {
+      if (padEdge(p, 1) && G.back) { G.back(); return; }
       const ax = p.axes[1] || 0, key = p.index + ':ax';
       const dir = btn(p, 12) || ax < -0.6 ? -1 : btn(p, 13) || ax > 0.6 ? 1 : 0;
       if (dir && padPrev[key] !== dir) moveFocus(dir);
@@ -1301,7 +1520,7 @@ function moveFocus(dir) {
   const items = Array.from(card.querySelectorAll('button:not(:disabled)'));
   if (!items.length) return;
   const k = items.indexOf(document.activeElement);
-  items[(k + dir + items.length) % items.length].focus();
+  items[(k + dir + items.length) % items.length].focus({ focusVisible: true });
   Sound.click();
 }
 
@@ -1312,6 +1531,7 @@ function canvasPoint(ev) {
   const px = (ev.clientX - r.left) / r.width * V.cw, py = (ev.clientY - r.top) / r.height * V.ch;
   return [(px - V.ox) / V.s, (py - V.oy) / V.s];
 }
+addEventListener('pointerdown', () => { if (G.replay) endReplay(); });
 cv.addEventListener('pointerdown', e => {
   Sound.init();
   if (e.pointerType === 'mouse' || touch.id !== null) return;
@@ -1409,7 +1629,8 @@ function el(tag, cls, text) {
  * Affiche un écran de menu plein et opaque.
  * kanji : la grande colonne verticale de gauche ; seal : 'shu' | 'ink' | 'blue' pour un tampon de résultat.
  */
-function showScreen({ kanji, title, lead, body = [], focus, seal }) {
+function showScreen({ kanji, title, lead, body = [], focus, seal, back = null }) {
+  G.back = back;
   const k = el('div', 'scr-kanji');
   k.setAttribute('aria-hidden', 'true');
   if (seal) { k.classList.add('seal', seal); k.textContent = kanji; }
@@ -1421,12 +1642,18 @@ function showScreen({ kanji, title, lead, body = [], focus, seal }) {
   if (title) main.append(el('h1', 'scr-title', title));
   if (lead) main.append(el('p', 'lead', lead));
   main.append(...body.filter(Boolean));
+  const hint = el('p', 'pad-hint pad-only');           // visible seulement avec une manette branchée
+  const h1 = el('span'); h1.append(padBadge(0), document.createTextNode('Valider'));
+  hint.append(h1);
+  if (back) { const h2 = el('span'); h2.append(padBadge(1), document.createTextNode('Retour')); hint.append(h2); }
+  main.append(hint);
   card.replaceChildren(k, main);
   ov.hidden = false; ov.scrollTop = 0;
   document.body.classList.add('menu-open');
-  setTimeout(() => { const f = card.querySelector(focus || 'button:not(:disabled)'); if (f) f.focus(); }, 0);
+  setTimeout(() => { const f = card.querySelector(focus || 'button:not(:disabled)'); if (f) f.focus({ focusVisible: true }); }, 0);
 }
 function hideOverlay() {
+  G.back = null;
   ov.hidden = true;
   document.body.classList.remove('menu-open');
   if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
@@ -1490,27 +1717,31 @@ function aiSelect() {
     title: "Contre l'IA",
     lead: 'Premier à trois manches. Chaque lutteur a sa façon de combattre.',
     body: [list(...btns, mbtn('Retour', null, false, menu, 'quiet'))],
+    back: menu,
   });
 }
 
 function controlsCard(backFn) {
   const L = keyLabels;
   const rows = [
-    ['Bouger', '', [L.KeyW, L.KeyA, L.KeyS, L.KeyD], ['↑', '←', '↓', '→']],
-    ['Dash', "Coup d'épaule", ['Espace'], ['Entrée']],
-    ['Garde', 'Maintenir, bloque de face', [L.KeyE], ['Maj droite', '0 pavé']],
-    ['Feinte', 'Faux dash', [L.KeyF], ['Ctrl droit', '1 pavé']],
+    ['Bouger', '', [L.KeyW, L.KeyA, L.KeyS, L.KeyD], ['↑', '←', '↓', '→'], ['Stick ou croix']],
+    ['Dash', "Coup d'épaule", ['Espace'], ['Entrée'], [0]],
+    ['Garde', 'Maintenir, bloque de face', [L.KeyE], ['Maj droite', '0 pavé'], [1, 5]],
+    ['Feinte', 'Faux dash', [L.KeyF], ['Ctrl droit', '1 pavé'], [2]],
+    ['Pause', '', ['Échap'], ['Échap'], [9]],
   ];
   const t = el('table', 'controls');
   const head = el('tr');
-  head.append(el('th'), el('th', 'e', 'Rouge'), el('th', 'w', 'Bleu'));
+  head.append(el('th'), el('th', 'e', 'Rouge'), el('th', 'w', 'Bleu'), el('th', 'pad', 'Manette'));
   t.append(head);
-  rows.forEach(([name, hint, a, b]) => {
+  rows.forEach(([name, hint, a, b, pad]) => {
     const tr = el('tr');
     const td0 = el('td', null, name);
     if (hint) td0.append(el('span', null, hint));
     const k = keys => { const td = el('td'); keys.forEach(x => td.append(el('kbd', null, x))); return td; };
-    tr.append(td0, k(a), k(b));
+    const pd = el('td', 'pad');
+    pad.forEach(x => pd.append(typeof x === 'number' ? padBadge(x) : el('span', 'pad-txt', x)));
+    tr.append(td0, k(a), k(b), pd);
     t.append(tr);
   });
   showScreen({
@@ -1518,10 +1749,11 @@ function controlsCard(backFn) {
     title: 'Commandes',
     body: [
       t,
-      el('p', 'note', "Manette : stick ou croix pour bouger, A pour le dash, X pour la feinte, B ou les gâchettes pour la garde, Start pour la pause. Contre l'IA, les deux jeux de touches contrôlent le rouge."),
+      el('p', 'note', "Les boutons s'adaptent à ta manette (Xbox, PlayStation ou Nintendo) dès qu'elle est branchée. Toutes les gâchettes servent aussi à la garde. Contre l'IA, les deux jeux de touches contrôlent le rouge."),
       el('p', 'note', "Départ : attends « Hakkeyoi ! ». Un dash juste après le signal pousse 30 % plus fort. Un dash avant le signal est un faux départ et te fige un instant. Touche M pour couper le son."),
       list(mbtn('Retour', null, false, backFn, 'quiet')),
     ],
+    back: backFn,
   });
 }
 
@@ -1551,6 +1783,7 @@ function wardrobe(backFn) {
     lead: 'Choisis ta ceinture. Monte dans le classement en mode Carrière pour en débloquer de nouvelles.',
     body: [grid, list(mbtn('Retour', null, false, backFn, 'quiet'))],
     focus: '.swatch.sel',
+    back: backFn,
   });
 }
 
@@ -1579,6 +1812,7 @@ function careerHub() {
     lead: `Basho ${c.bashoNo}. Gagne au moins ${Math.floor(BASHO_DAYS / 2) + 1} combats sur ${BASHO_DAYS} pour monter au rang suivant.`,
     body: [ranks, recordEl(b.results, b.day), vs,
       list(mbtn('Combattre', 'Une manche, comme au vrai sumo', true, () => startMatch({ mode: 'career', opp: o })), row, reset)],
+    back: menu,
   });
 }
 
@@ -1596,7 +1830,7 @@ function careerBoutResult(won) {
     kanji: won ? '勝' : '負', seal: won ? 'shu' : 'ink',
     title: won ? 'Victoire' : 'Défaite',
     lead: `Jour ${b.day} contre ${o.name}.`,
-    body: [recordEl(b.results, -1), list(next)],
+    body: [recordEl(b.results, -1), statsTable(), list(next)],
   });
 }
 
@@ -1644,12 +1878,38 @@ function startMatch(opts) {
   G.S = newMatch({ seed: (Math.random() * 2 ** 31) | 0, win, ai });
   G.screen = 'match'; G.paused = false; G.acc = 0; G.particles = []; G.flash = null; G.zabuton.length = 0;
   G.down = [false, false];
+  G.stats = [newStats(), newStats()]; G.dashOpen = [false, false]; G.labels = []; G.rec = []; G.replay = null;
   latch.forEach(l => { l.dash = l.feint = false; });
   hideOverlay(); updateScore();
   handleEvents(G.S, true);
 }
 
+/** Tableau des stats du match, joueur par joueur. */
+function statsTable() {
+  const t = el('table', 'stats');
+  const head = el('tr');
+  head.append(el('th'), el('th', 'e', G.names[0]), el('th', 'w', G.names[1]));
+  t.append(head);
+  const rows = [
+    ['Dashs qui ont touché', st => `${st.dashHit} sur ${st.dash}`],
+    ['Coups bloqués', st => st.block],
+    ['Feintes', st => st.feint],
+    ['Faux départs', st => st.matta],
+    ['Meilleur départ', st => st.best == null ? '–' : fmtSec(st.best)],
+  ];
+  for (const [label, f] of rows) {
+    const tr = el('tr');
+    tr.append(el('td', null, label), el('td', null, String(f(G.stats[0]))), el('td', null, String(f(G.stats[1]))));
+    t.append(tr);
+  }
+  return t;
+}
+
 function onMatchEnd(w) {
+  // d'abord le ralenti du coup gagnant, ensuite les coussins éventuels et l'écran de résultat
+  startReplay(() => afterReplay(w));
+}
+function afterReplay(w) {
   const S = G.S;
   // Exploit : battre un lutteur mieux classé, le Yokozuna, ou remonter de 0–2.
   // Les coussins volent dans l'arène avant que l'écran de résultat ne la recouvre.
@@ -1667,7 +1927,7 @@ function onMatchEnd(w) {
     kanji: '勝', seal: w === 0 ? 'shu' : 'blue',
     title: `${G.names[w]} gagne`,
     lead: w === 0 ? "Victoire à l'est." : "Victoire à l'ouest.",
-    body: [fin, list(
+    body: [fin, statsTable(), list(
       mbtn('Revanche', G.mode === 'versus' ? 'Mêmes joueurs' : `Contre ${G.opp.name}`, true, () => startMatch({ mode: G.mode, opp: G.opp })),
       mbtn('Menu', null, false, menu, 'quiet'),
     )],
@@ -1688,14 +1948,22 @@ function pauseCard() {
     kanji: '休憩',
     title: 'Pause',
     body: [list(
-      mbtn('Reprendre', 'Échap', true, resume),
+      mbtn('Reprendre', keyOrPad('Échap', 9), true, resume),
       mbtn('Commandes', null, false, () => controlsCard(pauseCard)),
       mbtn('Abandonner', G.mode === 'career' ? 'Compte comme une défaite' : 'Retour au menu', false, () => {
         if (G.mode === 'career') { G.paused = false; G.S.phase = 'matchEnd'; G.screen = 'menu'; careerBoutResult(false); }
         else menu();
       }, 'quiet'),
     )],
+    back: resume,
   });
+}
+/** Petit libellé de touche qui devient un bouton de manette quand une manette est branchée. */
+function keyOrPad(key, padIndex) {
+  const sm = el('small');
+  const w = el('span', 'pad-only'); w.append(padBadge(padIndex));
+  sm.append(el('span', 'kb-only', key), w);
+  return sm;
 }
 function resume() { if (!G.paused) return; G.paused = false; G.last = performance.now(); hideOverlay(); }
 function autoPause() { if (inPlay()) togglePause(); }
@@ -1731,9 +1999,13 @@ function frame(now) {
     if (Sound.ctx) Sound.crowdLevel(0.02);
     hud(); requestAnimationFrame(frame); return;
   }
-  const S = G.S, live = true;
+  if (G.replay) {                          // ralenti du coup gagnant : la simulation est arrêtée
+    if (Sound.ctx) Sound.crowdLevel(0.04 + 0.12 * Math.min(1.5, G.cheer));
+    updateReplay(dt); hud(); requestAnimationFrame(frame); return;
+  }
+  const S = G.S;
 
-  if (!(live && G.paused)) {
+  if (!G.paused) {
     G.acc += dt;
     let n = 0;
     while (G.acc >= DT && n < 30) {
@@ -1742,10 +2014,15 @@ function frame(now) {
         S.ai[1] ? aiCommand(S, 1) : humanCmd(1, S),
       ];
       step(S, cmds);
-      if (live) for (let k = 0; k < 2; k++) if (S.score[k] === 0 && S.score[1 - k] === S.win - 1 && S.win > 1) G.down[k] = true;
-      handleEvents(S, live);
+      for (let k = 0; k < 2; k++) if (S.score[k] === 0 && S.score[1 - k] === S.win - 1 && S.win > 1) G.down[k] = true;
+      const fx = handleEvents(S);
+      // on garde les dernières secondes de la manche pour le ralenti
+      if (S.phase === 'play' || S.phase === 'roundEnd') {
+        G.rec.push({ p: [snapPlayer(S.p[0]), snapPlayer(S.p[1])], ring: S.ring, fx, win: fx.some(e => e.type === 'roundWin') });
+        if (G.rec.length > REC_MAX) G.rec.shift();
+      }
       G.acc -= DT; n++;
-      if (S.phase === 'matchEnd') { G.acc = 0; break; }
+      if (S.phase === 'matchEnd' || G.replay) { G.acc = 0; break; }
     }
     if (n === 30) G.acc = 0;
     // effets visuels (hors simulation)
@@ -1754,11 +2031,13 @@ function frame(now) {
     G.shake = Math.max(0, G.shake - dt * 40);
     G.cheer = Math.max(0, G.cheer - dt);
     if (G.flash) { G.flash.t -= dt; if (G.flash.t <= 0) G.flash = null; }
+    for (const l of G.labels) l.t -= dt;
+    G.labels = G.labels.filter(l => l.t > 0);
   }
   const fx = (S.p[0].x + S.p[1].x) / 2, fy = (S.p[0].y + S.p[1].y) / 2;
   G.focusX += (fx - G.focusX) * Math.min(1, dt * 3); G.focusY += (fy - G.focusY) * Math.min(1, dt * 3);
-  if (Sound.ctx) Sound.crowdLevel(live && !G.paused ? 0.05 + 0.16 * Math.min(1.5, G.cheer) : 0.025);
-  if (ov.hidden) render(S, G.paused ? 1 : clamp(G.acc / DT, 0, 1), G.paused ? 0 : dt);
+  if (Sound.ctx) Sound.crowdLevel(!G.paused ? 0.05 + 0.16 * Math.min(1.5, G.cheer) : 0.025);
+  if (ov.hidden && !G.replay) render(S, G.paused ? 1 : clamp(G.acc / DT, 0, 1), G.paused ? 0 : dt);
   hud();
   requestAnimationFrame(frame);
 }

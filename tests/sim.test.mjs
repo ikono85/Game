@@ -65,3 +65,18 @@ test('le cercle rétrécit jusqu\'au minimum puis s\'arrête', () => {
   for (let n = 0; n < 120 * 60; n++) D.step(S, [D.NOCMD, D.NOCMD]);
   assert.equal(S.ring, 170);
 });
+
+test('temps de réaction : émis au premier dash après le signal, une seule fois', () => {
+  const S = D.newMatch({ seed: 4, win: 1, ai: [null, null] });
+  while (S.phase === 'shikiri') D.step(S, [D.NOCMD, D.NOCMD]);
+  S.events.length = 0;
+  for (let i = 0; i < 24; i++) D.step(S, [D.NOCMD, D.NOCMD]);      // 0,2 s d'attente
+  D.step(S, [{ ...D.NOCMD, dash: true }, D.NOCMD]);
+  const r = S.events.filter(e => e.type === 'reaction');
+  assert.equal(r.length, 1);
+  assert.ok(Math.abs(r[0].t - 25 / 120) < 1e-9 && r[0].perfect === true);
+  S.events.length = 0;
+  for (let i = 0; i < 200; i++) D.step(S, [D.NOCMD, D.NOCMD]);
+  D.step(S, [{ ...D.NOCMD, dash: true }, D.NOCMD]);
+  assert.equal(S.events.filter(e => e.type === 'reaction').length, 0);
+});
