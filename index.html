@@ -282,7 +282,23 @@ kbd {
 .swatch:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 .note { font-size: 12px; color: #7b6a58; margin: 0; max-width: 40ch; line-height: 1.45; }
 .mbtn.danger { border-color: var(--red); color: var(--red); }
+/* ---------- Plein écran : l'arène occupe toute la page, le bandeau flotte au-dessus ---------- */
+body { margin: 0; padding: 0; display: block; }
+.stage { position: fixed; inset: 0; max-width: none; display: block; }
+#c { width: 100%; height: 100%; max-width: none; max-height: none; aspect-ratio: auto; border-radius: 0; box-shadow: none; }
+.hud {
+  position: fixed; z-index: 5; top: 10px; left: 50%; transform: translateX(-50%);
+  width: calc(100% - 24px); max-width: 900px;
+}
+.overlay { border-radius: 0; padding: 104px 12px 16px; box-sizing: border-box; }
+.hud .center {            /* posé sur la foule : il lui faut son propre fond */
+  background: linear-gradient(180deg, var(--wood-hi), var(--wood));
+  border: 2px solid #1c120b; border-radius: 6px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 3px 0 rgba(0,0,0,.4);
+}
+.touch { position: fixed; z-index: 5; bottom: 12px; left: 50%; transform: translateX(-50%); width: calc(100% - 24px); }
 @media (max-width: 480px) {
+  .overlay { padding-top: 84px; }
   .hud-btns { flex-direction: column; gap: 3px; }
   .hud-btns .icon-btn { margin-top: 0; padding: 3px 6px; font-size: 10px; }
   .who .rank { display: none; }
@@ -995,9 +1011,7 @@ function throwZabuton(n = 40) {
 
 // --- Rendu ---
 function drawRing(ring) {
-  ctx.imageSmoothingEnabled = true;
-  if (MAP.complete && MAP.naturalWidth) ctx.drawImage(MAP, 0, 0, W, W);
-  else { ctx.fillStyle = '#231b16'; ctx.fillRect(0, 0, W, W); }
+  // (la carte et les gradins prolongés sont dans le fond mis en cache, voir buildBackground)
   if (ring < R0) {        // zone perdue : le tatami s'assombrit à mesure que le cercle rétrécit
     ctx.beginPath();
     ctx.arc(C, C, R0 + 10, 0, TAU); ctx.arc(C, C, ring + 16, 0, TAU, true);
@@ -1032,8 +1046,8 @@ let vignette = null;
 function drawCrowd() {
   if (CROWD.complete && CROWD.naturalWidth) {
     ctx.imageSmoothingEnabled = true;
-    for (let i = 0; i < SEATS.length; i++) {
-      const [x, y, v, ph] = SEATS[i];
+    for (let i = 0, n = SEATS.length + extraSeats.length; i < n; i++) {
+      const [x, y, v, ph] = i < SEATS.length ? SEATS[i] : extraSeats[i - SEATS.length];
       const a = Math.atan2(G.focusY - y, G.focusX - x);           // tout le monde suit le combat
       const up = G.cheer > 0 && ((G.t * 2.4 + ph) % 1) < 0.35 + 0.4 * Math.min(1, G.cheer);
       const s = (1 + 0.018 * Math.sin(G.t * 1.4 + ph * 6.28)) * (up ? 1.07 : 1);
@@ -1044,12 +1058,16 @@ function drawCrowd() {
     }
   }
   if (!vignette) {
-    vignette = ctx.createRadialGradient(C, C, 470, C, C, 980);
+    // lumière de scène : même dégradé qu'avant sur la carte, qui continue à s'assombrir sur les gradins ajoutés
+    const R = Math.max(981, Math.hypot(Math.max(C - V.x0, V.x1 - C), Math.max(C - V.y0, V.y1 - C)));
+    const t = r => Math.min(1, (r - 470) / (R - 470));
+    vignette = ctx.createRadialGradient(C, C, 470, C, C, R);
     vignette.addColorStop(0, 'rgba(12,7,4,0)');
-    vignette.addColorStop(.35, 'rgba(12,7,4,.22)');
-    vignette.addColorStop(1, 'rgba(12,7,4,.66)');
+    vignette.addColorStop(t(648), 'rgba(12,7,4,.22)');
+    vignette.addColorStop(t(980), 'rgba(12,7,4,.66)');
+    if (R > 981) vignette.addColorStop(1, 'rgba(12,7,4,.85)');
   }
-  ctx.fillStyle = vignette; ctx.fillRect(0, 0, W, W);
+  ctx.fillStyle = vignette; ctx.fillRect(V.x0, V.y0, V.x1 - V.x0, V.y1 - V.y0);
 }
 
 function drawPlayer(p, sheet, alpha) {
@@ -1116,8 +1134,13 @@ function drawText(text, color, size = 84, y = C - 250) {
 }
 
 function render(S, alpha, dt) {
-  ctx.save();
-  if (G.shake > 0) ctx.translate((Math.random() - .5) * G.shake, (Math.random() - .5) * G.shake);
+  const shx = G.shake > 0 ? (Math.random() - .5) * G.shake : 0, shy = G.shake > 0 ? (Math.random() - .5) * G.shake : 0;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = '#1a120c'; ctx.fillRect(0, 0, V.cw, V.ch);
+  if (!bgCache) buildBackground();
+  if (bgCache) ctx.drawImage(bgCache, shx * V.s, shy * V.s);
+  ctx.setTransform(V.s, 0, 0, V.s, V.ox + shx * V.s, V.oy + shy * V.s);   // coordonnées du monde
+  ctx.imageSmoothingEnabled = true;
   drawRing(S ? S.ring : R0);
   drawCrowd();
   if (S) {
@@ -1133,7 +1156,7 @@ function render(S, alpha, dt) {
   }
   ctx.globalAlpha = 1;
   drawZabuton(dt);
-  ctx.restore();
+  ctx.setTransform(V.s, 0, 0, V.s, V.ox, V.oy);
   if (S && S === G.S && S.phase === 'shikiri') drawText('Prêts…', '#efe3c8', 104);
   else if (G.flash && G.screen === 'match') drawText(G.flash.text, G.flash.color, G.flash.text.length > 14 ? 72 : 84);
 }
@@ -1266,7 +1289,8 @@ function moveFocus(dir) {
 let touch = { id: null, x: 0, y: 0 }, touchGuard = false;
 function canvasPoint(ev) {
   const r = cv.getBoundingClientRect();
-  return [(ev.clientX - r.left) / r.width * W, (ev.clientY - r.top) / r.height * W];
+  const px = (ev.clientX - r.left) / r.width * V.cw, py = (ev.clientY - r.top) / r.height * V.ch;
+  return [(px - V.ox) / V.s, (py - V.oy) / V.s];
 }
 cv.addEventListener('pointerdown', e => {
   Sound.init();
@@ -1679,11 +1703,61 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 
-function fit() {
-  const st = cv.parentElement.getBoundingClientRect();
-  const s = Math.max(200, Math.min(st.width, st.height));
-  cv.style.width = s + 'px'; cv.style.height = s + 'px';
+// --- Vue plein écran ---
+// Le monde (carte de 1408 unités) est mis à l'échelle pour que VIEW_H unités tiennent dans le plus
+// petit côté de la fenêtre ; l'autre côté révèle des gradins prolongés autour de la carte.
+const VIEW_H = 1300, VIEW_PORTRAIT = 960;
+const CELL = W / 14;                 // une loge de 4 coussins (masu-seki) sur la carte
+const V = { s: 1, ox: 0, oy: 0, cw: 1, ch: 1, x0: 0, y0: 0, x1: W, y1: W };
+let bgCache = null, extraSeats = [];
+function hash2(a, b) {               // pseudo-hasard stable : les gradins ne changent pas d'une image à l'autre
+  let h = (Math.imul(a | 0, 374761393) + Math.imul(b | 0, 668265263)) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
 }
+function buildBackground() {
+  extraSeats = [];
+  if (!(MAP.complete && MAP.naturalWidth)) { bgCache = null; return; }
+  const c = bgCache || document.createElement('canvas');
+  c.width = V.cw; c.height = V.ch;
+  const g = c.getContext('2d');
+  g.setTransform(V.s, 0, 0, V.s, V.ox, V.oy);
+  g.fillStyle = '#1a120c'; g.fillRect(V.x0 - 2, V.y0 - 2, V.x1 - V.x0 + 4, V.y1 - V.y0 + 4);
+  const k = MAP.naturalWidth / W;
+  const i0 = Math.floor(V.x0 / CELL) - 1, i1 = Math.ceil(V.x1 / CELL) + 1;
+  const j0 = Math.floor(V.y0 / CELL) - 1, j1 = Math.ceil(V.y1 / CELL) + 1;
+  for (let j = j0; j < j1; j++) for (let i = i0; i < i1; i++) {
+    if (i >= 0 && i < 14 && j >= 0 && j < 14) continue;          // déjà sur la carte
+    const x = i * CELL, y = j * CELL;
+    if ((j === 6 || j === 7) && (i < 0 || i >= 14)) {            // l'allée (hanamichi) continue vers l'extérieur
+      g.fillStyle = '#2a1c12'; g.fillRect(x, y, CELL + 1, CELL + 1);
+      g.fillStyle = 'rgba(255,220,170,.05)';
+      for (let p = 0; p < 4; p++) g.fillRect(x, y + p * CELL / 4, CELL + 1, 2);
+      continue;
+    }
+    const src = (hash2(i, j) * 14) | 0;                          // une loge prise au hasard dans la rangée du haut
+    g.drawImage(MAP, src * CELL * k, 0, CELL * k, CELL * k, x, y, CELL + 1, CELL + 1);
+    for (const [dx, dy] of [[32, 32], [76, 32], [32, 76], [76, 76]]) {
+      const h = hash2(i * 7 + dx, j * 13 + dy);
+      if (h < 0.12) continue;                                    // place libre
+      extraSeats.push([x + dx * CELL / 100, y + dy * CELL / 100, ((h * 9973) | 0) % 16, (h * 7919) % 1]);
+    }
+  }
+  g.drawImage(MAP, 0, 0, W, W);
+  bgCache = c;
+}
+function fit() {
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const cw = Math.max(200, Math.round(innerWidth * dpr)), ch = Math.max(200, Math.round(innerHeight * dpr));
+  if (cv.width !== cw) cv.width = cw;
+  if (cv.height !== ch) cv.height = ch;
+  const s = Math.min(cw, ch) / (ch > cw * 1.15 ? VIEW_PORTRAIT : VIEW_H);   // en portrait, on zoome sur le dohyō
+  Object.assign(V, { s, cw, ch, ox: (cw - W * s) / 2, oy: (ch - W * s) / 2 });
+  V.x0 = -V.ox / s; V.y0 = -V.oy / s; V.x1 = (cw - V.ox) / s; V.y1 = (ch - V.oy) / s;
+  vignette = null;
+  buildBackground();
+}
+MAP.addEventListener('load', () => buildBackground());
 addEventListener('resize', fit);
 
 // Accès pour les tests (déterminisme, IA contre IA)
