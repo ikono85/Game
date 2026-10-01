@@ -124,98 +124,9 @@ body {
   align-items: center;
   justify-content: center;
 }
-canvas { display: block; max-width: 100%; max-height: 100%; aspect-ratio: 1; border-radius: 8px; touch-action: none; box-shadow: 0 10px 40px rgba(0,0,0,.5); }
+#c { display: block; touch-action: none; }
 
-/* ---------- Menus ---------- */
-.overlay {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  background: radial-gradient(closest-side, rgba(22,17,14,.55), rgba(22,17,14,.9));
-  border-radius: 8px;
-  overflow: hidden;
-}
-.card {
-  position: relative;
-  width: min(420px, calc(100% - 24px));
-  display: flex; flex-direction: column; align-items: center; gap: 14px;
-  padding: 26px 22px 22px;
-  background: var(--paper);
-  color: var(--ink);
-  border-radius: 4px;
-  box-shadow: 0 0 0 6px var(--wood), 0 0 0 8px #1c120b, 0 18px 50px rgba(0,0,0,.6);
-  text-align: center;
-}
-.card::before, .card::after {          /* baguettes du rouleau */
-  content: ""; position: absolute; left: -14px; right: -14px; height: 10px;
-  background: linear-gradient(180deg, var(--wood-hi), #1c120b); border-radius: 5px;
-}
-.card::before { top: -12px; }
-.card::after { bottom: -12px; }
-.kicker { font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: #7b6a58; margin: 0; }
-.title {
-  font-family: var(--font-display); font-weight: 400;
-  font-size: clamp(38px, 9vw, 56px); line-height: .95; margin: 0;
-  text-wrap: balance;
-}
-.title .kanji { display: block; font-size: .5em; color: var(--red); letter-spacing: .3em; margin-bottom: 6px; }
-.lead { font-size: 14px; line-height: 1.5; max-width: 32ch; margin: 0; color: #4a3d31; }
-.menu-btns { width: 100%; display: flex; flex-direction: column; gap: 8px; }
-.mbtn {
-  width: 100%;
-  display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  font-family: var(--font-display); font-size: 18px; font-weight: 400;
-  padding: 13px 16px;
-  border: 2px solid var(--ink); border-radius: 4px;
-  background: transparent; color: var(--ink); cursor: pointer;
-  transition: transform .12s, background .12s, color .12s;
-}
-.mbtn small { font-family: var(--font-body); font-weight: 700; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; opacity: .7; }
-.mbtn:hover { transform: translateX(3px); background: var(--ink); color: var(--paper); }
-.mbtn.primary { background: var(--red); border-color: var(--red); color: var(--paper); }
-.mbtn.primary:hover { background: #b93424; }
-.mbtn:focus-visible, .icon-btn:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
-
-.controls { width: 100%; border-collapse: collapse; font-size: 13px; }
-.controls th { font-family: var(--font-display); font-weight: 400; font-size: 15px; padding: 4px 6px 8px; }
-.controls th.e { color: var(--red); }
-.controls th.w { color: var(--blue); }
-.controls td { padding: 6px; border-top: 1px solid rgba(27,21,18,.12); vertical-align: middle; }
-.controls td:first-child { text-align: left; font-weight: 700; }
-.controls td:first-child span { display: block; font-weight: 400; font-size: 11px; color: #7b6a58; }
-kbd {
-  display: inline-block;
-  font-family: var(--font-body); font-weight: 700; font-size: 11px;
-  min-width: 1.4em; padding: 2px 5px; margin: 1px;
-  background: #fffaf0; color: var(--ink);
-  border: 1px solid #b8a78e; border-bottom-width: 3px; border-radius: 4px;
-}
-.stamp {
-  width: 96px; height: 96px; display: grid; place-items: center;
-  font-family: var(--font-display); font-size: 58px; line-height: 1;
-  color: var(--paper); border-radius: 8px; transform: rotate(-8deg);
-  box-shadow: inset 0 0 0 4px rgba(244,236,216,.35);
-  animation: stamp .35s cubic-bezier(.2, 1.6, .4, 1) both;
-}
-@keyframes stamp { from { transform: rotate(-8deg) scale(1.8); opacity: 0; } to { transform: rotate(-8deg) scale(1); opacity: 1; } }
-.final { display: flex; align-items: center; gap: 12px; font-family: var(--font-display); font-size: 28px; font-variant-numeric: tabular-nums; }
-.final .e { color: var(--red); } .final .w { color: var(--blue); }
-
-/* bannières nobori de part et d'autre */
-.nobori {
-  position: absolute; top: 6%; bottom: 6%; width: 46px;
-  display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 4px;
-  padding-top: 14px;
-  font-family: var(--font-display); font-size: 24px; color: var(--paper);
-  writing-mode: vertical-rl;
-  box-shadow: inset 0 10px 0 rgba(0,0,0,.2);
-  pointer-events: none;
-}
-.nobori.e { left: 4%; background: var(--red); }
-.nobori.w { right: 4%; background: var(--blue); }
-.nobori::after { content: ""; position: absolute; left: 0; right: 0; bottom: -10px; height: 10px; background: inherit; clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 0, 0 100%); }
-@media (max-width: 620px) { .nobori { display: none; } }
+.icon-btn:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
 
 .touch { display: none; width: 100%; max-width: 760px; justify-content: space-between; gap: 10px; }
 .touch button {
@@ -229,59 +140,9 @@ kbd {
   .side-kanji { width: 34px; height: 34px; font-size: 20px; }
   .center { min-width: 70px; padding: 4px; }
 }
-@media (prefers-reduced-motion: reduce) { .stamp { animation: none; } .mbtn { transition: none; } }
 
 /* ---------- Ajouts v2 ---------- */
 .hud-btns { display: flex; gap: 6px; }
-.card { max-height: calc(100% - 40px); overflow-y: auto; }
-.mbtn:disabled { opacity: .45; cursor: not-allowed; transform: none; background: transparent; color: var(--ink); }
-.mbtn .stars-s { font-family: var(--font-body); font-size: 12px; letter-spacing: .1em; color: var(--red); opacity: 1; }
-.mbtn:hover .stars-s, .mbtn:focus-visible .stars-s { color: var(--gold); }
-.opp-desc { display: block; font-family: var(--font-body); font-size: 12px; font-weight: 400; text-transform: none; letter-spacing: 0; opacity: .75; text-align: left; margin-top: 2px; }
-.mbtn.tall { align-items: flex-start; text-align: left; }
-.mbtn.tall > span:first-child { display: flex; flex-direction: column; }
-.row-btns { width: 100%; display: flex; gap: 8px; }
-.row-btns .mbtn { flex: 1; justify-content: center; }
-.mbtn.ghost { border-color: rgba(27,21,18,.3); font-size: 14px; padding: 9px 12px; }
-.record { display: flex; gap: 8px; justify-content: center; }
-.record .day {
-  width: 26px; height: 26px; border-radius: 50%; box-sizing: border-box;
-  border: 2px dashed rgba(27,21,18,.3);
-}
-.record .day.w { border: 3px solid var(--ink); background: transparent; }
-.record .day.l { border: 3px solid var(--ink); background: var(--ink); }
-.record .day.now { border-style: solid; border-color: var(--red); }
-.banzuke-rank { display: flex; align-items: center; gap: 14px; }
-.banzuke-rank .kj {
-  font-family: var(--font-display); font-size: 22px; line-height: 1; white-space: nowrap;
-  background: var(--ink); color: var(--paper); padding: 10px 10px; border-radius: 3px;
-}
-.banzuke-rank .nm { font-family: var(--font-display); font-size: 30px; line-height: 1; text-align: left; }
-.banzuke-rank .nm small { display: block; font-family: var(--font-body); font-weight: 700; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: #7b6a58; margin-top: 6px; }
-.ladder { display: flex; gap: 3px; width: 100%; }
-.ladder span { flex: 1; height: 6px; border-radius: 2px; background: rgba(27,21,18,.15); }
-.ladder span.on { background: var(--red); }
-.ladder span.best { background: rgba(210,65,47,.35); }
-.versus { width: 100%; border-top: 1px solid rgba(27,21,18,.15); padding-top: 12px; display: flex; flex-direction: column; gap: 4px; }
-.versus .who2 { font-family: var(--font-display); font-size: 22px; line-height: 1.1; }
-.versus .sty { font-size: 13px; color: #4a3d31; }
-.verdict { font-family: var(--font-display); font-size: 22px; margin: 0; }
-.verdict.up { color: #2f7a3a; } .verdict.down { color: var(--red); }
-.unlock { font-size: 13px; background: #fffaf0; border: 1px solid #b8a78e; border-radius: 4px; padding: 8px 10px; }
-.swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; width: 100%; }
-.swatch {
-  display: flex; flex-direction: column; align-items: center; gap: 4px;
-  padding: 8px 4px; border: 2px solid rgba(27,21,18,.2); border-radius: 6px; background: #fffaf0;
-  font: 700 11px var(--font-body); color: var(--ink); cursor: pointer;
-}
-.swatch canvas { width: 56px; height: 56px; box-shadow: none; border-radius: 0; aspect-ratio: 1; }
-.swatch small { font-weight: 400; color: #7b6a58; font-size: 10px; }
-.swatch.sel { border-color: var(--red); box-shadow: 0 0 0 2px var(--red); }
-.swatch:disabled { cursor: not-allowed; opacity: .55; }
-.swatch:disabled canvas { filter: grayscale(1) brightness(.4); }
-.swatch:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
-.note { font-size: 12px; color: #7b6a58; margin: 0; max-width: 40ch; line-height: 1.45; }
-.mbtn.danger { border-color: var(--red); color: var(--red); }
 /* ---------- Plein écran : l'arène occupe toute la page, le bandeau flotte au-dessus ---------- */
 body { margin: 0; padding: 0; display: block; }
 .stage { position: fixed; inset: 0; max-width: none; display: block; }
@@ -290,15 +151,176 @@ body { margin: 0; padding: 0; display: block; }
   position: fixed; z-index: 5; top: 10px; left: 50%; transform: translateX(-50%);
   width: calc(100% - 24px); max-width: 900px;
 }
-.overlay { border-radius: 0; padding: 104px 12px 16px; box-sizing: border-box; }
 .hud .center {            /* posé sur la foule : il lui faut son propre fond */
   background: linear-gradient(180deg, var(--wood-hi), var(--wood));
   border: 2px solid #1c120b; border-radius: 6px;
   box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 3px 0 rgba(0,0,0,.4);
 }
 .touch { position: fixed; z-index: 5; bottom: 12px; left: 50%; transform: translateX(-50%); width: calc(100% - 24px); }
+
+/* =====================================================================
+   Menus : écrans pleins et opaques, posés sur l'argile du dohyō.
+   Un seul geste fort : la grande colonne de kanji à gauche, comme
+   l'en-tête vertical d'un banzuke. Tout le reste reste sobre.
+   ===================================================================== */
+:root {
+  --m-clay: #c9a36a;
+  --m-clay-hi: #d8b77f;
+  --m-clay-lo: #a9824f;
+  --m-ink: #1c130d;
+  --m-ink-soft: #5a4532;
+  --m-shu: #c4361f;          /* vermillon des tampons */
+}
+body.menu-open .hud, body.menu-open .touch { visibility: hidden; }
+
+.overlay {
+  position: fixed; inset: 0; z-index: 10;
+  overflow-y: auto; overscroll-behavior: contain;
+  color: var(--m-ink);
+  background-color: var(--m-clay);
+  background-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .25 0 0 0 0 .16 0 0 0 0 .08 0 0 0 .22 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"),
+    radial-gradient(110% 85% at 38% 45%, var(--m-clay-hi) 0%, var(--m-clay) 55%, var(--m-clay-lo) 100%);
+}
+/* l'anneau de ballots de paille (tawara), enfoncé dans l'argile, déborde à droite */
+.overlay::before {
+  content: ""; position: fixed; z-index: 0; pointer-events: none;
+  width: 150vh; aspect-ratio: 1; border-radius: 50%;
+  right: calc(-150vh + max(22vh, 120px)); top: 50%; transform: translateY(-50%);
+  border: clamp(14px, 2.4vh, 26px) solid rgba(230, 210, 154, .5);
+  box-shadow: 0 0 0 2px rgba(110, 80, 40, .22), inset 0 0 0 2px rgba(110, 80, 40, .22);
+}
+
+.card {
+  position: relative; z-index: 1;
+  min-height: 100%; box-sizing: border-box;
+  display: grid; grid-template-columns: auto minmax(0, 600px);
+  justify-content: center; align-content: center; align-items: center;
+  column-gap: clamp(28px, 5vw, 80px);
+  padding: 48px 28px;
+}
+.scr-kanji {           /* un caractère par ligne : ne dépend pas des métriques verticales de la police */
+  display: flex; flex-direction: column; align-items: center;
+  font-family: var(--font-display); font-weight: 400;
+  font-size: clamp(88px, 21vh, 210px); line-height: 1; letter-spacing: .04em;
+  color: var(--m-ink); user-select: none;
+}
+.scr-kanji.long { font-size: clamp(72px, 15vh, 150px); }
+/* résultats : le kanji devient un tampon (hanko) qui frappe le papier */
+.scr-kanji.seal {
+  font-size: clamp(84px, 16vh, 150px);
+  width: 1.35em; height: 1.35em; display: grid; place-items: center;
+  color: var(--m-clay-hi); background: var(--m-shu); border-radius: .1em;
+  box-shadow: inset 0 0 0 .06em rgba(255, 240, 210, .35);
+  transform: rotate(-6deg);
+  animation: seal .32s cubic-bezier(.2, 1.5, .4, 1) both;
+}
+.scr-kanji.seal.ink { background: var(--m-ink); }
+.scr-kanji.seal.blue { background: var(--blue); }
+@keyframes seal { from { transform: rotate(-6deg) scale(1.7); opacity: 0; } to { transform: rotate(-6deg) scale(1); opacity: 1; } }
+
+.scr-main { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.scr-title {
+  margin: 0; font-family: var(--font-display); font-weight: 400;
+  font-size: clamp(42px, 6.4vw, 76px); line-height: .95; letter-spacing: -.01em;
+  text-wrap: balance;
+}
+.lead { margin: 0; max-width: 42ch; font-size: 17px; line-height: 1.5; color: var(--m-ink-soft); }
+.note { margin: 0; max-width: 52ch; font-size: 14px; line-height: 1.55; color: var(--m-ink-soft); }
+.sub-h { margin: 6px 0 0; font-family: var(--font-body); font-weight: 700; font-size: 14px; color: var(--m-ink-soft); }
+
+/* Liste de choix : de vraies lignes, séparées par des filets d'encre */
+.menu-btns { display: flex; flex-direction: column; border-top: 2px solid var(--m-ink); }
+.mbtn {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 18px;
+  width: 100%; padding: 15px 14px; margin: 0;
+  border: 0; border-bottom: 1px solid rgba(28, 19, 13, .32); border-radius: 0;
+  background: transparent; color: var(--m-ink); text-align: left; cursor: pointer;
+  font-family: var(--font-display); font-weight: 400; font-size: clamp(22px, 2.6vw, 28px); line-height: 1.1;
+}
+.mbtn small {
+  flex: none; font-family: var(--font-body); font-weight: 400; font-size: 14px;
+  color: var(--m-ink-soft); text-align: right;
+}
+.mbtn.primary { color: var(--m-shu); }
+.mbtn:hover, .mbtn:focus-visible { background: var(--m-ink); color: var(--m-clay-hi); outline: none; }
+.mbtn:hover small, .mbtn:focus-visible small, .mbtn:hover .opp-desc, .mbtn:focus-visible .opp-desc { color: var(--m-clay); }
+.mbtn.primary:hover, .mbtn.primary:focus-visible { background: var(--m-shu); color: #fff4e2; }
+.mbtn.primary:hover small, .mbtn.primary:focus-visible small { color: #fbe2c8; }
+.mbtn:disabled { opacity: .45; cursor: not-allowed; }
+.mbtn.quiet { font-family: var(--font-body); font-weight: 700; font-size: 16px; padding: 12px 14px; }
+.mbtn.danger { color: var(--m-shu); }
+.row-btns { display: grid; grid-template-columns: 1fr 1fr; }
+.row-btns .mbtn + .mbtn { border-left: 1px solid rgba(28, 19, 13, .32); }
+
+/* adversaires : nom + style + description, difficulté en ronds de banzuke */
+.mbtn.opp { align-items: center; }
+.opp-name { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.opp-desc { font-family: var(--font-body); font-size: 14px; line-height: 1.4; color: var(--m-ink-soft); }
+.dots { flex: none; display: flex; gap: 4px; }
+.dots i { width: 10px; height: 10px; border-radius: 50%; border: 2px solid currentColor; box-sizing: border-box; }
+.dots i.on { background: currentColor; }
+
+/* carrière */
+.ranks { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 0; padding: 0; list-style: none; font-size: 13px; color: rgba(28, 19, 13, .4); }
+.ranks li.done { color: var(--m-ink-soft); }
+.ranks li.now { color: var(--m-shu); font-weight: 700; }
+.record { display: flex; gap: 8px; }
+.record .day { width: 24px; height: 24px; border-radius: 50%; box-sizing: border-box; border: 2px dashed rgba(28, 19, 13, .35); }
+.record .day.w { border: 3px solid var(--m-ink); }
+.record .day.l { border: 3px solid var(--m-ink); background: var(--m-ink); }
+.record .day.now { border: 3px solid var(--m-shu); }
+.versus { display: flex; flex-direction: column; gap: 4px; padding-top: 14px; border-top: 1px solid rgba(28, 19, 13, .32); }
+.versus .who2 { font-family: var(--font-display); font-size: 30px; line-height: 1.05; }
+.versus .sty { font-size: 15px; line-height: 1.45; color: var(--m-ink-soft); max-width: 50ch; }
+.verdict { margin: 0; font-family: var(--font-display); font-size: 26px; line-height: 1.15; }
+.verdict.up { color: var(--m-ink); } .verdict.down { color: var(--m-shu); }
+.unlock { margin: 0; padding: 10px 14px; font-size: 15px; border-left: 4px solid var(--m-shu); background: rgba(255, 246, 225, .35); }
+.final { display: flex; align-items: baseline; gap: 14px; font-family: var(--font-display); font-size: 40px; font-variant-numeric: tabular-nums; }
+.final .e { color: var(--red); } .final .w { color: var(--blue); }
+
+/* vestiaire */
+.swatches { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.swatch {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 4px 8px;
+  border: 2px solid rgba(28, 19, 13, .35); border-radius: 4px; background: rgba(255, 246, 225, .3);
+  font: 700 14px var(--font-body); color: var(--m-ink); cursor: pointer;
+}
+.swatch canvas { display: block; width: 64px; height: 64px; }
+.swatch small { font-weight: 400; font-size: 12px; color: var(--m-ink-soft); }
+.swatch:hover { border-color: var(--m-ink); }
+.swatch.sel { border-color: var(--m-shu); box-shadow: inset 0 0 0 1px var(--m-shu); background: rgba(255, 246, 225, .55); }
+.swatch:disabled { cursor: not-allowed; opacity: .6; }
+.swatch:disabled canvas { filter: grayscale(1) brightness(.45); }
+.swatch:focus-visible { outline: 3px solid var(--m-ink); outline-offset: 2px; }
+
+/* commandes */
+.controls { width: 100%; border-collapse: collapse; font-size: 15px; }
+.controls th { font-family: var(--font-display); font-weight: 400; font-size: 18px; text-align: left; padding: 0 8px 10px; }
+.controls th.e { color: var(--m-shu); } .controls th.w { color: var(--blue); }
+.controls td { padding: 9px 8px; border-top: 1px solid rgba(28, 19, 13, .32); vertical-align: middle; }
+.controls td:first-child { font-weight: 700; }
+.controls td:first-child span { display: block; font-weight: 400; font-size: 13px; color: var(--m-ink-soft); }
+kbd {
+  display: inline-block; min-width: 1.5em; margin: 1px; padding: 3px 6px; text-align: center;
+  font-family: var(--font-body); font-weight: 700; font-size: 13px;
+  background: #f6ead0; color: var(--m-ink); border: 1px solid #8d7350; border-bottom-width: 3px; border-radius: 4px;
+}
+
+@media (max-width: 720px) {
+  .card { grid-template-columns: minmax(0, 1fr); align-content: start; padding: 28px 18px 36px; row-gap: 10px; }
+  .scr-kanji, .scr-kanji.long { flex-direction: row; justify-content: flex-start; font-size: 56px; }
+  .scr-kanji.seal { justify-content: center; }
+  .scr-kanji.seal { font-size: 64px; }
+  .overlay::before { width: 160vw; right: -145vw; }
+  .mbtn { flex-direction: column; align-items: flex-start; gap: 3px; }
+  .mbtn small { text-align: left; }
+  .mbtn.opp { align-items: flex-start; }
+  .swatches { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) { .scr-kanji.seal { animation: none; } }
+
 @media (max-width: 480px) {
-  .overlay { padding-top: 84px; }
   .hud-btns { flex-direction: column; gap: 3px; }
   .hud-btns .icon-btn { margin-top: 0; padding: 3px 6px; font-size: 10px; }
   .who .rank { display: none; }
@@ -343,8 +365,6 @@ body { margin: 0; padding: 0; display: block; }
 <div class="stage">
   <canvas id="c" width="1408" height="1408" aria-label="Arène de sumo"></canvas>
   <div class="overlay" id="ov">
-    <div class="nobori e" aria-hidden="true">東方</div>
-    <div class="nobori w" aria-hidden="true">西方</div>
     <div class="card" id="card"></div>
   </div>
 </div>
@@ -933,7 +953,7 @@ const Sound = {
 const G = {
   screen: 'menu',       // 'menu' (démo IA vs IA derrière le menu) | 'match'
   mode: null,           // 'versus' | 'ai' | 'career'
-  S: null, demo: null, paused: false, acc: 0, last: performance.now(),
+  S: null, paused: false, acc: 0, last: performance.now(),
   t: 0, shake: 0, cheer: 0, flash: null, particles: [], zabuton: [],
   names: ['Rouge', 'Bleu'], skins: ['rouge', 'blue'], opp: null, focusX: C, focusY: C,
   down: [false, false],   // un joueur a été mené 0–(N-1) : sa victoire serait un exploit
@@ -1385,27 +1405,44 @@ function el(tag, cls, text) {
   if (text != null) e.textContent = text;
   return e;
 }
-function showCard(children, focusSel) {
-  card.replaceChildren(...children); ov.hidden = false;
-  setTimeout(() => { const f = card.querySelector(focusSel || 'button:not(:disabled)'); if (f) f.focus(); }, 0);
+/**
+ * Affiche un écran de menu plein et opaque.
+ * kanji : la grande colonne verticale de gauche ; seal : 'shu' | 'ink' | 'blue' pour un tampon de résultat.
+ */
+function showScreen({ kanji, title, lead, body = [], focus, seal }) {
+  const k = el('div', 'scr-kanji');
+  k.setAttribute('aria-hidden', 'true');
+  if (seal) { k.classList.add('seal', seal); k.textContent = kanji; }
+  else {
+    k.append(...[...kanji].map(ch => el('span', null, ch)));
+    if ([...kanji].length >= 3) k.classList.add('long');
+  }
+  const main = el('div', 'scr-main');
+  if (title) main.append(el('h1', 'scr-title', title));
+  if (lead) main.append(el('p', 'lead', lead));
+  main.append(...body.filter(Boolean));
+  card.replaceChildren(k, main);
+  ov.hidden = false; ov.scrollTop = 0;
+  document.body.classList.add('menu-open');
+  setTimeout(() => { const f = card.querySelector(focus || 'button:not(:disabled)'); if (f) f.focus(); }, 0);
 }
-function hideOverlay() { ov.hidden = true; if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); }
+function hideOverlay() {
+  ov.hidden = true;
+  document.body.classList.remove('menu-open');
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+}
 function mbtn(label, sub, primary, fn, cls = '') {
   const b = el('button', 'mbtn' + (primary ? ' primary' : '') + (cls ? ' ' + cls : ''));
   b.type = 'button';
-  const l = el('span', null, label);
-  b.append(l);
+  b.append(el('span', null, label));
   if (sub != null) b.append(typeof sub === 'string' ? el('small', null, sub) : sub);
   b.addEventListener('click', () => { Sound.init(); Sound.click(); fn(); });
   return b;
 }
-function title(kanji, text) {
-  const h = el('h1', 'title');
-  h.append(el('span', 'kanji', kanji), document.createTextNode(text));
-  return h;
-}
+const list = (...btns) => { const d = el('div', 'menu-btns'); d.append(...btns.filter(Boolean)); return d; };
 function recordEl(results, current) {
   const r = el('div', 'record');
+  r.setAttribute('aria-label', `${results.filter(x => x).length} victoires, ${results.filter(x => x === 0).length} défaites`);
   for (let d = 0; d < BASHO_DAYS; d++) {
     const s = el('span', 'day' + (results[d] === 1 ? ' w' : results[d] === 0 ? ' l' : d === current ? ' now' : ''));
     s.title = `Jour ${d + 1}`;
@@ -1413,54 +1450,60 @@ function recordEl(results, current) {
   }
   return r;
 }
-const starStr = n => '★'.repeat(n) + '☆'.repeat(5 - n);
+function dots(n) {
+  const d = el('span', 'dots');
+  d.setAttribute('aria-label', `difficulté ${n} sur 5`);
+  for (let k = 0; k < 5; k++) d.append(el('i', k < n ? 'on' : ''));
+  return d;
+}
 
 // --- Écrans ---
 function menu() {
   G.screen = 'menu'; G.mode = null; G.paused = false; G.zabuton.length = 0;
   setNames('Rouge', 'Est', 'Bleu', 'Ouest'); updateScore();
   const c = save.career;
-  const btns = el('div', 'menu-btns');
-  btns.append(
-    mbtn('Carrière', c ? RANKS[c.rank].name : 'du Jonokuchi au Yokozuna', true, careerHub),
-    mbtn('2 joueurs', 'même clavier / manettes', false, () => startMatch({ mode: 'versus' })),
-    mbtn("Contre l'IA", 'choisis ton adversaire', false, aiSelect),
-    mbtn('Vestiaire', 'mawashi', false, () => wardrobe(menu)),
-    mbtn('Commandes', 'touches', false, () => controlsCard(menu)),
-  );
-  showCard([
-    el('p', 'kicker', 'Tournoi du soir'),
-    title('相撲', 'Dohyō Duel'),
-    el('p', 'lead', "Pousse ton adversaire hors du cercle avant qu'il ne te sorte. Le cercle rétrécit à chaque instant."),
-    btns,
-  ]);
+  showScreen({
+    kanji: '相撲',
+    title: 'Dohyō Duel',
+    lead: "Pousse ton adversaire hors du cercle avant qu'il ne te sorte. Le cercle rétrécit à chaque instant.",
+    body: [list(
+      mbtn('Carrière', c ? `${RANKS[c.rank].name}, basho ${c.bashoNo}` : 'Du Jonokuchi au Yokozuna', true, careerHub),
+      mbtn('2 joueurs', 'Même clavier ou deux manettes', false, () => startMatch({ mode: 'versus' })),
+      mbtn("Contre l'IA", 'Cinq adversaires, cinq styles', false, aiSelect),
+      mbtn('Vestiaire', 'Choisir ta ceinture', false, () => wardrobe(menu)),
+      mbtn('Commandes', 'Clavier, manette, tactile', false, () => controlsCard(menu)),
+    )],
+  });
 }
 
 function aiSelect() {
-  const btns = el('div', 'menu-btns');
-  STYLE_ORDER.forEach((id, k) => {
-    const s = STYLES[id];
-    const lab = el('span');
-    lab.append(document.createTextNode(SHIKONA[k * 3] + ' · ' + s.label), el('span', 'opp-desc', s.desc));
-    const b = mbtn('', el('small', 'stars-s', starStr(s.stars)), false, () => startMatch({ mode: 'ai', opp: { name: SHIKONA[k * 3], style: id, level: 0.35 + s.stars * 0.12 } }), 'tall');
+  const btns = STYLE_ORDER.map((id, k) => {
+    const s = STYLES[id], name = SHIKONA[k * 3];
+    const lab = el('span', 'opp-name');
+    lab.append(document.createTextNode(`${name}, ${s.label}`), el('span', 'opp-desc', s.desc));
+    const b = mbtn('', dots(s.stars), false, () => startMatch({ mode: 'ai', opp: { name, style: id, level: 0.35 + s.stars * 0.12 } }), 'opp');
     b.firstChild.replaceWith(lab);
-    btns.append(b);
+    return b;
   });
-  btns.append(mbtn('Retour', 'menu', false, menu));
-  showCard([el('p', 'kicker', "Contre l'IA · premier à 3 manches"), title('稽古', 'Adversaire'), btns]);
+  showScreen({
+    kanji: '稽古',
+    title: "Contre l'IA",
+    lead: 'Premier à trois manches. Chaque lutteur a sa façon de combattre.',
+    body: [list(...btns, mbtn('Retour', null, false, menu, 'quiet'))],
+  });
 }
 
 function controlsCard(backFn) {
   const L = keyLabels;
   const rows = [
     ['Bouger', '', [L.KeyW, L.KeyA, L.KeyS, L.KeyD], ['↑', '←', '↓', '→']],
-    ['Dash', "coup d'épaule", ['Espace'], ['Entrée']],
-    ['Garde', 'maintenir, bloque de face', [L.KeyE], ['Maj droite', '0 pavé']],
-    ['Feinte', 'faux dash', [L.KeyF], ['Ctrl droit', '1 pavé']],
+    ['Dash', "Coup d'épaule", ['Espace'], ['Entrée']],
+    ['Garde', 'Maintenir, bloque de face', [L.KeyE], ['Maj droite', '0 pavé']],
+    ['Feinte', 'Faux dash', [L.KeyF], ['Ctrl droit', '1 pavé']],
   ];
   const t = el('table', 'controls');
   const head = el('tr');
-  head.append(el('th'), el('th', 'e', '東 Rouge'), el('th', 'w', '西 Bleu'));
+  head.append(el('th'), el('th', 'e', 'Rouge'), el('th', 'w', 'Bleu'));
   t.append(head);
   rows.forEach(([name, hint, a, b]) => {
     const tr = el('tr');
@@ -1470,14 +1513,16 @@ function controlsCard(backFn) {
     tr.append(td0, k(a), k(b));
     t.append(tr);
   });
-  const back = el('div', 'menu-btns');
-  back.append(mbtn('Retour', backFn === menu ? 'menu' : 'pause', false, backFn));
-  showCard([
-    el('p', 'kicker', 'Commandes'), t,
-    el('p', 'note', "Manette : stick ou croix pour bouger, A dash, X feinte, B / gâchettes garde, Start pause. Contre l'IA, les deux jeux de touches contrôlent le rouge."),
-    el('p', 'note', "Tachiai : attends « Hakkeyoi ! ». Un dash juste après le signal pousse 30 % plus fort ; un dash avant le signal est un faux départ (matta) et te fige un instant. Touche M : couper le son."),
-    back,
-  ]);
+  showScreen({
+    kanji: '指南',
+    title: 'Commandes',
+    body: [
+      t,
+      el('p', 'note', "Manette : stick ou croix pour bouger, A pour le dash, X pour la feinte, B ou les gâchettes pour la garde, Start pour la pause. Contre l'IA, les deux jeux de touches contrôlent le rouge."),
+      el('p', 'note', "Départ : attends « Hakkeyoi ! ». Un dash juste après le signal pousse 30 % plus fort. Un dash avant le signal est un faux départ et te fige un instant. Touche M pour couper le son."),
+      list(mbtn('Retour', null, false, backFn, 'quiet')),
+    ],
+  });
 }
 
 function wardrobe(backFn) {
@@ -1494,14 +1539,19 @@ function wardrobe(backFn) {
       g.translate(64, 64); g.rotate(-PI / 2); g.drawImage(sh, 0, 0, FRAME, FRAME, -64, -64, 128, 128);
     };
     draw();
-    b.append(cnv, el('span', null, s.name), el('small', null, s.rank <= best ? (save.skin === s.id ? 'porté' : 'débloqué') : RANKS[s.rank].name));
-    b.disabled = s.rank > best;
+    const unlocked = s.rank <= best;
+    b.append(cnv, el('span', null, s.name), el('small', null, !unlocked ? `Rang ${RANKS[s.rank].name}` : save.skin === s.id ? 'Portée' : 'Disponible'));
+    b.disabled = !unlocked;
     b.addEventListener('click', () => { save.skin = s.id; G.skins[0] = s.id; persist(); Sound.click(); wardrobe(backFn); });
     grid.append(b);
   });
-  const back = el('div', 'menu-btns');
-  back.append(mbtn('Retour', null, false, backFn));
-  showCard([el('p', 'kicker', 'Vestiaire'), title('締込', 'Mawashi'), el('p', 'note', 'Monte dans le banzuke en mode Carrière pour débloquer de nouvelles ceintures.'), grid, back], '.swatch.sel');
+  showScreen({
+    kanji: '締込',
+    title: 'Vestiaire',
+    lead: 'Choisis ta ceinture. Monte dans le classement en mode Carrière pour en débloquer de nouvelles.',
+    body: [grid, list(mbtn('Retour', null, false, backFn, 'quiet'))],
+    focus: '.swatch.sel',
+  });
 }
 
 function careerHub() {
@@ -1509,28 +1559,27 @@ function careerHub() {
   G.screen = 'menu'; G.mode = null;
   setNames('Rouge', 'Est', 'Bleu', 'Ouest'); updateScore();
   const rk = RANKS[c.rank];
-  const rankBox = el('div', 'banzuke-rank');
-  const nm = el('div', 'nm', rk.name);
-  nm.append(el('small', null, `Basho n°${c.bashoNo} · jour ${Math.min(b.day + 1, BASHO_DAYS)} / ${BASHO_DAYS}`));
-  rankBox.append(el('div', 'kj', rk.kanji), nm);
-  const ladder = el('div', 'ladder');
-  RANKS.forEach((_, k) => ladder.append(el('span', k <= c.rank ? 'on' : k <= c.best ? 'best' : '')));
+  const ranks = el('ol', 'ranks');
+  ranks.setAttribute('aria-label', 'Rangs du banzuke');
+  RANKS.forEach((r, k) => ranks.append(el('li', k === c.rank ? 'now' : k <= c.best ? 'done' : '', r.name)));
   const o = b.opps[b.day];
   const vs = el('div', 'versus');
-  vs.append(el('p', 'kicker', `Adversaire du jour · ${RANKS[o.rank].name}`), el('div', 'who2', `${o.name}`),
-    el('div', 'sty', `${STYLES[o.style].label} — ${STYLES[o.style].desc}`));
-  const btns = el('div', 'menu-btns');
-  btns.append(mbtn('Combattre', 'une manche, comme au vrai sumo', true, () => startMatch({ mode: 'career', opp: o })));
+  vs.append(el('p', 'sub-h', `Jour ${b.day + 1}, ton adversaire (${RANKS[o.rank].name})`), el('div', 'who2', o.name),
+    el('div', 'sty', `${STYLES[o.style].label[0].toUpperCase() + STYLES[o.style].label.slice(1)}. ${STYLES[o.style].desc}`));
   const row = el('div', 'row-btns');
-  row.append(mbtn('Vestiaire', null, false, () => wardrobe(careerHub), 'ghost'), mbtn('Menu', null, false, menu, 'ghost'));
+  row.append(mbtn('Vestiaire', null, false, () => wardrobe(careerHub), 'quiet'), mbtn('Menu', null, false, menu, 'quiet'));
   let armed = false;
   const reset = mbtn('Recommencer la carrière', null, false, () => {
-    if (!armed) { armed = true; reset.firstChild.textContent = 'Confirmer : tout effacer ?'; reset.classList.add('danger'); return; }
+    if (!armed) { armed = true; reset.firstChild.textContent = 'Tout effacer ? Clique encore pour confirmer'; reset.classList.add('danger'); return; }
     save.career = null; save.skin = 'rouge'; G.skins[0] = 'rouge'; persist(); careerHub();
-  }, 'ghost');
-  btns.append(row, reset);
-  showCard([el('p', 'kicker', 'Carrière · banzuke'), rankBox, ladder, recordEl(b.results, b.day), vs,
-    el('p', 'note', `Majorité de victoires sur ${BASHO_DAYS} jours (kachi-koshi) = promotion. Sinon, rétrogradation.`), btns]);
+  }, 'quiet');
+  showScreen({
+    kanji: rk.kanji,
+    title: rk.name,
+    lead: `Basho ${c.bashoNo}. Gagne au moins ${Math.floor(BASHO_DAYS / 2) + 1} combats sur ${BASHO_DAYS} pour monter au rang suivant.`,
+    body: [ranks, recordEl(b.results, b.day), vs,
+      list(mbtn('Combattre', 'Une manche, comme au vrai sumo', true, () => startMatch({ mode: 'career', opp: o })), row, reset)],
+  });
 }
 
 function careerBoutResult(won) {
@@ -1538,41 +1587,44 @@ function careerBoutResult(won) {
   const o = b.opps[b.day];
   b.results.push(won ? 1 : 0);
   b.day++;
-  // Exploit : battre un adversaire mieux classé (ou un Yokozuna) déclenche les coussins
-  if (won && (o.rank > c.rank || o.style === 'yokozuna')) throwZabuton();
   persist();
   const wins = b.results.filter(x => x).length, losses = b.results.length - wins;
-  const btns = el('div', 'menu-btns');
-  if (b.day >= BASHO_DAYS) btns.append(mbtn('Résultat du basho', 'banzuke', true, bashoEnd));
-  else btns.append(mbtn('Jour suivant', `${wins}–${losses}`, true, careerHub));
-  const stamp = el('div', 'stamp', won ? '勝' : '負');
-  stamp.style.background = won ? 'var(--red)' : '#4a3d31';
-  showCard([stamp, el('p', 'kicker', `Jour ${b.day} · ${o.name}`), title('', won ? 'Victoire' : 'Défaite'), recordEl(b.results, -1), btns]);
+  const next = b.day >= BASHO_DAYS
+    ? mbtn('Voir le classement', 'Fin du basho', true, bashoEnd)
+    : mbtn('Jour suivant', `${wins} victoire${wins > 1 ? 's' : ''}, ${losses} défaite${losses > 1 ? 's' : ''}`, true, careerHub);
+  showScreen({
+    kanji: won ? '勝' : '負', seal: won ? 'shu' : 'ink',
+    title: won ? 'Victoire' : 'Défaite',
+    lead: `Jour ${b.day} contre ${o.name}.`,
+    body: [recordEl(b.results, -1), list(next)],
+  });
 }
 
 function bashoEnd() {
   const c = career(), b = c.basho;
-  const wins = b.results.filter(x => x).length;
+  const wins = b.results.filter(x => x).length, results = b.results.slice();
   const before = c.rank, bestBefore = c.best;
   let verdict, cls;
-  if (c.rank === 8 && wins >= 6) { c.rank = 9; verdict = 'Promu Yokozuna !'; cls = 'up'; }
-  else if (wins === BASHO_DAYS) { c.rank = Math.min(8, Math.max(c.rank, c.rank + 2)); c.yusho++; verdict = 'Zenshō yūshō : 7 victoires !'; cls = 'up'; }
-  else if (wins * 2 > BASHO_DAYS) { c.rank = c.rank === 9 ? 9 : Math.min(8, c.rank + 1); verdict = 'Kachi-koshi : promotion'; cls = 'up'; }
-  else { c.rank = c.rank === 9 ? 9 : Math.max(0, c.rank - 1); verdict = c.rank === 9 ? 'Make-koshi… un Yokozuna ne descend pas' : 'Make-koshi : rétrogradation'; cls = 'down'; }
-  if (c.rank === before && cls === 'up') verdict += ' (déjà au sommet)';
+  if (c.rank === 8 && wins >= 6) { c.rank = 9; verdict = 'Promu Yokozuna'; cls = 'up'; }
+  else if (wins === BASHO_DAYS) { c.rank = Math.min(8, Math.max(c.rank, c.rank + 2)); c.yusho++; verdict = 'Sept victoires sur sept : tu montes de deux rangs'; cls = 'up'; }
+  else if (wins * 2 > BASHO_DAYS) { c.rank = c.rank === 9 ? 9 : Math.min(8, c.rank + 1); verdict = 'Plus de victoires que de défaites : promotion'; cls = 'up'; }
+  else { c.rank = c.rank === 9 ? 9 : Math.max(0, c.rank - 1); verdict = c.rank === 9 ? 'Plus de défaites que de victoires, mais un Yokozuna ne descend pas' : 'Plus de défaites que de victoires : rétrogradation'; cls = 'down'; }
+  if (c.rank === before && cls === 'up') verdict += ', tu es déjà au sommet';
   c.best = Math.max(c.best, c.rank);
   c.bashoNo++; c.basho = null; newBasho(c); persist();
   const unlocked = SKINS.filter(s => s.rank > bestBefore && s.rank <= c.best);
   const rk = RANKS[c.rank];
-  const items = [el('p', 'kicker', `Fin du basho · ${wins}–${BASHO_DAYS - wins}`), title(rk.kanji, rk.name),
-    el('p', 'verdict ' + cls, verdict)];
-  if (cls === 'up' && c.rank > before) throwZabuton(25);
-  if (unlocked.length) items.push(el('p', 'unlock', `Nouvelle${unlocked.length > 1 ? 's' : ''} ceinture${unlocked.length > 1 ? 's' : ''} : ${unlocked.map(s => s.name).join(', ')} — à porter au vestiaire.`));
-  const btns = el('div', 'menu-btns');
-  btns.append(mbtn('Basho suivant', `n°${c.bashoNo}`, true, careerHub));
-  if (unlocked.length) btns.append(mbtn('Vestiaire', null, false, () => wardrobe(careerHub)));
-  items.push(btns);
-  showCard(items);
+  showScreen({
+    kanji: rk.kanji,
+    title: rk.name,
+    lead: `Fin du basho : ${wins} victoire${wins > 1 ? 's' : ''} sur ${BASHO_DAYS}.`,
+    body: [
+      el('p', 'verdict ' + cls, verdict),
+      recordEl(results, -1),
+      unlocked.length ? el('p', 'unlock', `Nouvelle${unlocked.length > 1 ? 's' : ''} ceinture${unlocked.length > 1 ? 's' : ''} au vestiaire : ${unlocked.map(s => s.name).join(', ')}.`) : null,
+      list(mbtn('Basho suivant', `Basho ${c.bashoNo}`, true, careerHub), unlocked.length ? mbtn('Vestiaire', null, false, () => wardrobe(careerHub), 'quiet') : null),
+    ],
+  });
 }
 
 // --- Match ---
@@ -1599,18 +1651,27 @@ function startMatch(opts) {
 
 function onMatchEnd(w) {
   const S = G.S;
-  if (G.mode === 'career') { setTimeout(() => careerBoutResult(w === 0), 250); Sound.roll(); return; }
-  // Exploit en match normal : remonter de 0–2, ou battre le Yokozuna
-  const upset = G.down[w] || (G.mode === 'ai' && w === 0 && G.opp.style === 'yokozuna');
+  // Exploit : battre un lutteur mieux classé, le Yokozuna, ou remonter de 0–2.
+  // Les coussins volent dans l'arène avant que l'écran de résultat ne la recouvre.
+  let upset;
+  if (G.mode === 'career') { const c = career(); upset = w === 0 && (G.opp.rank > c.rank || G.opp.style === 'yokozuna'); }
+  else upset = G.down[w] || (G.mode === 'ai' && w === 0 && G.opp.style === 'yokozuna');
   if (upset) throwZabuton();
   Sound.roll();
-  const color = w === 0 ? 'var(--red)' : 'var(--blue)';
-  const stamp = el('div', 'stamp', '勝'); stamp.style.background = color;
+  const delay = upset ? 2000 : 450;
+  if (G.mode === 'career') { setTimeout(() => careerBoutResult(w === 0), delay); return; }
   const fin = el('div', 'final');
+  fin.setAttribute('aria-label', `Score ${S.score[0]} à ${S.score[1]}`);
   fin.append(el('span', 'e', S.score[0]), el('span', null, '–'), el('span', 'w', S.score[1]));
-  const btns = el('div', 'menu-btns');
-  btns.append(mbtn('Revanche', 'même mode', true, () => startMatch({ mode: G.mode, opp: G.opp })), mbtn('Menu', 'accueil', false, menu));
-  setTimeout(() => showCard([stamp, el('p', 'kicker', w === 0 ? "Victoire à l'Est" : "Victoire à l'Ouest"), title('', `${G.names[w]} gagne`), fin, btns]), 250);
+  setTimeout(() => showScreen({
+    kanji: '勝', seal: w === 0 ? 'shu' : 'blue',
+    title: `${G.names[w]} gagne`,
+    lead: w === 0 ? "Victoire à l'est." : "Victoire à l'ouest.",
+    body: [fin, list(
+      mbtn('Revanche', G.mode === 'versus' ? 'Mêmes joueurs' : `Contre ${G.opp.name}`, true, () => startMatch({ mode: G.mode, opp: G.opp })),
+      mbtn('Menu', null, false, menu, 'quiet'),
+    )],
+  }), delay);
 }
 
 // --- Pause & son ---
@@ -1623,16 +1684,18 @@ function togglePause() {
   } else resume();
 }
 function pauseCard() {
-  const btns = el('div', 'menu-btns');
-  btns.append(
-    mbtn('Reprendre', 'Échap', true, resume),
-    mbtn('Commandes', 'touches', false, () => controlsCard(pauseCard)),
-    mbtn('Abandonner', G.mode === 'career' ? 'compte comme défaite' : 'menu', false, () => {
-      if (G.mode === 'career') { G.paused = false; G.S.phase = 'matchEnd'; careerBoutResult(false); G.screen = 'menu'; }
-      else menu();
-    }),
-  );
-  showCard([el('p', 'kicker', 'Pause'), title('休憩', 'Pause'), btns]);
+  showScreen({
+    kanji: '休憩',
+    title: 'Pause',
+    body: [list(
+      mbtn('Reprendre', 'Échap', true, resume),
+      mbtn('Commandes', null, false, () => controlsCard(pauseCard)),
+      mbtn('Abandonner', G.mode === 'career' ? 'Compte comme une défaite' : 'Retour au menu', false, () => {
+        if (G.mode === 'career') { G.paused = false; G.S.phase = 'matchEnd'; G.screen = 'menu'; careerBoutResult(false); }
+        else menu();
+      }, 'quiet'),
+    )],
+  });
 }
 function resume() { if (!G.paused) return; G.paused = false; G.last = performance.now(); hideOverlay(); }
 function autoPause() { if (inPlay()) togglePause(); }
@@ -1657,11 +1720,6 @@ if (navigator.keyboard && navigator.keyboard.getLayoutMap) {
   }).catch(() => {});
 }
 
-// --- Démo derrière les menus : deux IA s'affrontent ---
-function newDemo() {
-  return newMatch({ seed: (Math.random() * 2 ** 31) | 0, win: 99, ai: [makeProfile('kitsune', 0.7), makeProfile('mai', 0.7)] });
-}
-
 // ---------------------------------------------------------------------
 // Boucle principale : simulation à pas fixe, rendu interpolé
 // ---------------------------------------------------------------------
@@ -1669,9 +1727,11 @@ function frame(now) {
   const dt = Math.min(0.25, (now - G.last) / 1000); G.last = now;
   pollPads();
   G.t += dt;
-  let S, live = false;
-  if (G.screen === 'match') { S = G.S; live = true; }
-  else { if (!G.demo || G.demo.phase === 'matchEnd') G.demo = newDemo(); S = G.demo; }
+  if (G.screen !== 'match' || !G.S) {     // menus opaques : rien à simuler ni à dessiner derrière
+    if (Sound.ctx) Sound.crowdLevel(0.02);
+    hud(); requestAnimationFrame(frame); return;
+  }
+  const S = G.S, live = true;
 
   if (!(live && G.paused)) {
     G.acc += dt;
@@ -1698,7 +1758,7 @@ function frame(now) {
   const fx = (S.p[0].x + S.p[1].x) / 2, fy = (S.p[0].y + S.p[1].y) / 2;
   G.focusX += (fx - G.focusX) * Math.min(1, dt * 3); G.focusY += (fy - G.focusY) * Math.min(1, dt * 3);
   if (Sound.ctx) Sound.crowdLevel(live && !G.paused ? 0.05 + 0.16 * Math.min(1.5, G.cheer) : 0.025);
-  render(S, live && G.paused ? 1 : clamp(G.acc / DT, 0, 1), live && G.paused ? 0 : dt);
+  if (ov.hidden) render(S, G.paused ? 1 : clamp(G.acc / DT, 0, 1), G.paused ? 0 : dt);
   hud();
   requestAnimationFrame(frame);
 }
