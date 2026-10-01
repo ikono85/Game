@@ -44,10 +44,16 @@ Reste un fichier front pur (HTML/JS), aucun serveur.
 
 ## Palier 3 — Online & Ranked (le plus dur)
 
-- **Netcode temps réel** (WebSocket). Point le plus risqué : un jeu avec
-  dashs à 620px/s et collisions précises tolère mal le lag brut. Prévoir de
-  la prédiction côté client + réconciliation serveur plutôt que d'envoyer les
-  positions brutes.
+- **Fait : duel 1v1 entre amis, sans serveur de jeu.** WebRTC en pair à pair
+  (PeerJS pour se trouver), netcode à rollback sur la simulation
+  déterministe, synchro périodique de l'hôte, partie rapide par emplacements
+  fixes, duel privé par code ou lien. Le bouton « Classé » est affiché,
+  verrouillé (« Bientôt »).
+- **Reste pour le classé** : un serveur qui fait foi (sinon l'hôte peut
+  tricher sur le résultat), donc les comptes du Palier 2, puis un
+  matchmaking qui tient compte du ping et de l'ELO. Le rollback actuel
+  resservira tel quel : le serveur rejouerait les commandes reçues pour
+  valider le résultat.
 - **Matchmaking + ELO** pour le classement.
 - **2v2** : ajoute de la synchro à 4 joueurs, à traiter après que le 1v1
   online tourne correctement — ne pas paralléliser les deux.

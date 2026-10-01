@@ -200,3 +200,44 @@ test('hanches basses : trop tard, l\'utchari passe', () => {
   const seen = utchariThenGuard(40);                 // 0,33 s : le soulevé (0,28 s) est fini
   assert.ok(seen.includes('utchari') && !seen.includes('utchariCounter'), seen.join(' '));
 });
+
+// --- En ligne : le netcode à rollback repose sur ces propriétés de la simulation ---
+function randomCmds(seed, n) {
+  const R = { seed };
+  const rnd = () => { let t = (R.seed = (R.seed + 0x6D2B79F5) | 0); t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const one = () => ({ mx: Math.round(rnd() * 200 - 100), my: Math.round(rnd() * 200 - 100), dash: rnd() < 0.02, feint: rnd() < 0.01, guard: rnd() < 0.15 });
+  return Array.from({ length: n }, () => [one(), one()]);
+}
+function straight(seed, cmds) {
+  const S = D.newMatch({ seed, win: 5, ai: [null, null] });
+  for (const c of cmds) { D.step(S, c); S.events.length = 0; }
+  return D.hashState(S);
+}
+
+test('rollback : revenir à un état copié puis resimuler redonne exactement la même partie', () => {
+  const cmds = randomCmds(77, 6000), ref = straight(3, cmds);
+  const S0 = D.newMatch({ seed: 3, win: 5, ai: [null, null] });
+  let S = S0;
+  const snaps = new Map([[0, structuredClone(S)]]);
+  for (let t = 1; t <= cmds.length; t++) {
+    // de temps en temps on simule 12 ticks avec de fausses commandes adverses (prédiction ratée)…
+    if (t % 97 === 0 && t + 12 <= cmds.length) {
+      for (let k = 0; k < 12; k++) { D.step(S, [cmds[t - 1 + k][0], { mx: 0, my: 0, dash: true, feint: false, guard: false }]); S.events.length = 0; }
+      // … puis on revient à l'état sauvegardé avant l'erreur
+      S = structuredClone(snaps.get(t - 1));
+    }
+    D.step(S, cmds[t - 1]); S.events.length = 0;
+    snaps.set(t, structuredClone(S));
+  }
+  assert.equal(D.hashState(S), ref);
+});
+
+test('synchro de l\'hôte : un état passé par JSON continue la même partie', () => {
+  const cmds = randomCmds(91, 5000), ref = straight(11, cmds);
+  let S = D.newMatch({ seed: 11, win: 5, ai: [null, null] });
+  for (let t = 1; t <= cmds.length; t++) {
+    D.step(S, cmds[t - 1]); S.events.length = 0;
+    if (t % 60 === 0) S = JSON.parse(JSON.stringify(S));     // ce que l'invité reçoit de l'hôte
+  }
+  assert.equal(D.hashState(S), ref);
+});

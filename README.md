@@ -6,8 +6,8 @@ Jeu de sumo 1v1 dans le navigateur. Pousse ton adversaire hors du cercle avant
 qu'il ne te sorte — et le cercle rétrécit à chaque instant.
 
 Tout le jeu tient dans un seul fichier, `index.html` (sprites intégrés, sons
-synthétisés en WebAudio, aucune dépendance). Pour jouer en local : ouvrir
-`index.html` dans un navigateur.
+synthétisés en WebAudio, bibliothèque réseau PeerJS intégrée). Pour jouer en
+local : ouvrir `index.html` dans un navigateur.
 
 ## Modes
 
@@ -17,6 +17,37 @@ synthétisés en WebAudio, aucune dépendance). Pour jouer en local : ouvrir
   au Vestiaire. Progression sauvegardée en local (`localStorage`).
 - **2 joueurs** — même clavier ou deux manettes, premier à 3 manches.
 - **Contre l'IA** — 5 lutteurs aux styles différents, premier à 3 manches.
+- **En ligne** — un joueur par écran, voir ci-dessous.
+
+## En ligne
+
+| Mode | Comment |
+|---|---|
+| Partie rapide | Affronte le premier joueur qui lance aussi une partie rapide (premier à 3 manches). |
+| Duel privé | Tu reçois un code de 5 lettres (et un lien) à envoyer à ton ami. Format au choix : 1 manche, premier à 2 ou premier à 3. |
+| Rejoindre avec un code | Tape le code de ton ami, ou ouvre simplement son lien. |
+| Classé | Pas encore : il faut des comptes et un serveur (voir `ROADMAP.md`). |
+
+Pas de serveur de jeu : les deux navigateurs se connectent directement
+(WebRTC). Le serveur public gratuit de PeerJS sert uniquement à se trouver
+(le code du duel est un identifiant PeerJS) ; il est libéré dès que le combat
+commence. La partie rapide marche de la même façon, avec 6 emplacements fixes
+où un joueur attend qu'un autre le rejoigne.
+
+Netcode à **rollback** : chacun simule la partie (simulation déterministe) et
+on n'échange que les commandes, appliquées 2 ticks (17 ms) plus tard. La
+commande adverse qui n'est pas encore arrivée est prédite (il continue ce
+qu'il faisait) ; quand elle arrive et diffère, on revient à l'état sauvegardé
+et on resimule jusqu'à maintenant. Celui qui a de l'avance ralentit un peu
+pour que les corrections restent courtes. Comme `Math.sin`, `Math.exp`… peuvent
+différer d'un navigateur à l'autre au dernier chiffre près, l'hôte envoie son
+état toutes les 0,5 s et l'invité se recale dessus ; la fin du match est
+décidée par l'hôte. Pas de pause en ligne : Échap propose d'abandonner
+(victoire par forfait pour l'autre). Ping affiché dans le bandeau.
+
+Limites : certains réseaux (école, entreprise) bloquent les connexions
+directes ; PeerJS fournit un relais (TURN) gratuit, sans garantie. Au-delà
+d'environ 150 ms de ping, les corrections deviennent visibles.
 
 ## Commandes
 
@@ -31,8 +62,8 @@ synthétisés en WebAudio, aucune dépendance). Pour jouer en local : ouvrir
 | Utchari | Au bord, quand il te pousse : Espace | Entrée | A |
 | Hanches basses (contre) | Quand on tente l'utchari sur toi : E | Maj droite | B |
 
-Touche **M** : couper le son. Contre l'IA, les deux jeux de touches contrôlent
-le rouge.
+Touche **M** : couper le son. Contre l'IA et en ligne, les deux jeux de
+touches contrôlent ton lutteur.
 
 **Tenir au bord (tawara)** : les talons sur les ballots de paille, pousser vers
 le centre freine la poussée adverse, mais vide la jauge de garde (1 s). Jauge
@@ -84,6 +115,9 @@ l'adversaire.
 4. **Entrées** — clavier par touche physique (`e.code`), API Gamepad, tactile
    (un doigt suivi par identifiant).
 5. **Menus, carrière, vestiaire, sauvegarde.**
+6. **En ligne** — connexion PeerJS, rollback, synchro de l'hôte, écrans du
+   mode en ligne. PeerJS est intégré dans une balise `<script type="text/plain">`
+   et n'est exécuté que si l'on joue en ligne.
 
 ## Tests
 
@@ -92,8 +126,10 @@ node --test tests/sim.test.mjs
 ```
 
 Les tests extraient la simulation directement de `index.html` et vérifient le
-déterminisme, le faux départ, le tachiai, le rétrécissement du cercle et que
-chaque IA termine ses matchs. Ils tournent aussi avant chaque déploiement
+déterminisme, le faux départ, le tachiai, le rétrécissement du cercle, que
+chaque IA termine ses matchs, et les deux propriétés dont dépend le jeu en
+ligne : revenir à un état copié puis resimuler redonne la même partie, et un
+état passé par JSON (la synchro de l'hôte) continue la même partie. Ils tournent aussi avant chaque déploiement
 GitHub Pages (`.github/workflows/deploy.yml`).
 
 ## Feuille de route
