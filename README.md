@@ -1,4 +1,4 @@
-https://ikono85.github.io/Game-navigateur/
+https://ikono85.github.io/Game/
 
 # Dohyō Duel
 
