@@ -27,9 +27,20 @@ synthétisés en WebAudio, aucune dépendance). Pour jouer en local : ouvrir
 | Garde (maintenir) | E | Maj droite / 0 pavé | B / gâchettes |
 | Feinte | F | Ctrl droit / 1 pavé | X |
 | Pause | Échap | Échap | Start |
+| Tenir au bord | Sur la paille, pousser vers le centre | idem | Stick vers le centre |
+| Utchari | En tenant : côté + Espace | côté + Entrée | côté + A |
 
 Touche **M** : couper le son. Contre l'IA, les deux jeux de touches contrôlent
 le rouge.
+
+**Tenir au bord (tawara)** : les talons sur les ballots de paille, pousser vers
+le centre freine la poussée adverse, mais vide la jauge de garde (1 s). Jauge
+vide = les talons glissent.
+
+**Utchari** : en tenant, si l'adversaire est collé et pousse, un dash sur le
+côté fait pivoter les deux lutteurs autour du point de contact : c'est
+l'attaquant qui sort. Coûte le dash et une partie de la jauge ; sans contact,
+c'est un simple dash le long du bord (risqué).
 
 **Tachiai** : attends « Hakkeyoi ! ». Un dash juste après le signal pousse 30 %
 plus fort ; un dash avant le signal est un faux départ (matta) qui te fige un

@@ -80,3 +80,62 @@ test('temps de réaction : émis au premier dash après le signal, une seule foi
   D.step(S, [{ ...D.NOCMD, dash: true }, D.NOCMD]);
   assert.equal(S.events.filter(e => e.type === 'reaction').length, 0);
 });
+
+// --- Tenir au bord et utchari ---
+function edgeSetup(seed) {
+  const S = D.newMatch({ seed, win: 1, ai: [null, null] });
+  while (S.phase === 'shikiri') D.step(S, [D.NOCMD, D.NOCMD]);
+  for (let i = 0; i < 200; i++) D.step(S, [D.NOCMD, D.NOCMD]);   // au-delà de la fenêtre du départ
+  S.events.length = 0;
+  return S;
+}
+
+test('tenir au bord : pousser vers le centre freine la sortie et vide la jauge', () => {
+  const run = hold => {
+    const S = edgeSetup(1), p = S.p[0];
+    p.x = 704 + S.ring - 6; p.y = 704; p.vx = 330; p.vy = 0; p.face = Math.PI;
+    S.p[1].x = 704 - 300;
+    let minSt = p.stamina, n = 0, held = false;
+    while (S.phase === 'play' && n < 60) {
+      D.step(S, [{ ...D.NOCMD, mx: hold ? -1 : 0 }, D.NOCMD]);
+      held = held || S.events.some(e => e.type === 'holdStart');
+      S.events.length = 0; minSt = Math.min(minSt, p.stamina); n++;
+    }
+    return { out: S.phase !== 'play', held, minSt };
+  };
+  const without = run(false), withHold = run(true);
+  assert.equal(without.out, true);
+  assert.equal(withHold.out, false);
+  assert.equal(withHold.held, true);
+  assert.ok(withHold.minSt < 1.8);
+});
+
+test('utchari : en tenant, un dash sur le côté fait pivoter et sortir l\'attaquant', () => {
+  const S = edgeSetup(2), p = S.p[0], o = S.p[1];
+  p.x = 704 + S.ring - 3; p.y = 704; p.face = Math.PI; p.vx = p.vy = 0;
+  o.x = p.x - 200; o.y = 704; o.face = 0; o.vx = o.vy = 0;
+  const seen = [];
+  let startTick = -1;
+  for (let n = 0; n < 240 && S.phase !== 'matchEnd'; n++) {
+    let c0 = { ...D.NOCMD, mx: -1 };
+    const close = Math.hypot(o.x - p.x, o.y - p.y) < 95;            // collé à l'attaquant
+    if (p.hold && p.holdTime > 0.04 && close && startTick < 0) { c0 = { ...D.NOCMD, my: 1, dash: true }; startTick = n; }
+    D.step(S, [c0, n === 2 ? { ...D.NOCMD, mx: 1, dash: true } : { ...D.NOCMD, mx: 1 }]);
+    for (const e of S.events) seen.push(e.type + (e.kimarite ? ':' + e.kimarite : ''));
+    S.events.length = 0;
+  }
+  assert.ok(seen.includes('utchariStart') && seen.includes('utchari'));
+  assert.ok(seen.includes('roundWin:utchari'));
+  assert.equal(S.matchWinner, 0);
+});
+
+test('utchari impossible sans contact : c\'est un simple dash', () => {
+  const S = edgeSetup(3), p = S.p[0];
+  p.x = 704 + S.ring - 3; p.y = 704; p.vx = 300; p.face = Math.PI;
+  S.p[1].x = 704 - 300;
+  for (let n = 0; n < 6; n++) D.step(S, [{ ...D.NOCMD, mx: -1 }, D.NOCMD]);
+  S.events.length = 0;
+  D.step(S, [{ ...D.NOCMD, my: 1, dash: true }, D.NOCMD]);
+  assert.ok(S.events.some(e => e.type === 'dash'));
+  assert.ok(!S.events.some(e => e.type === 'utchariStart'));
+});
