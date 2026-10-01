@@ -8,7 +8,7 @@ function loadSim() {
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
   const a = html.indexOf("'use strict';"), b = html.indexOf('// 4. PRÉSENTATION');
   assert.ok(a > 0 && b > a, 'sections de simulation introuvables dans index.html');
-  const src = html.slice(a, b) + '\nreturn { newMatch, step, aiCommand, makeProfile, hashState, NOCMD, STYLES };';
+  const src = html.slice(a, b) + '\nreturn { newMatch, step, aiCommand, makeProfile, hashState, NOCMD, STYLES, canUtchari };';
   return new Function('document', src)({ getElementById: () => null });
 }
 const D = loadSim();
@@ -138,4 +138,37 @@ test('utchari impossible sans contact : c\'est un simple dash', () => {
   D.step(S, [{ ...D.NOCMD, my: 1, dash: true }, D.NOCMD]);
   assert.ok(S.events.some(e => e.type === 'dash'));
   assert.ok(!S.events.some(e => e.type === 'utchariStart'));
+});
+
+function pinned(seed, attackerGuard) {
+  // le rouge tient au bord, le bleu arrive dessus en dash (garde levée ou non au contact)
+  const S = edgeSetup(seed), p = S.p[0], o = S.p[1];
+  p.x = 704 + S.ring - 3; p.y = 704; p.face = Math.PI; p.vx = p.vy = 0;
+  o.x = p.x - 200; o.y = 704; o.face = 0; o.vx = o.vy = 0;
+  return { S, p, o, attackerGuard };
+}
+function playPinned({ S, p, o, attackerGuard }, dashCmd) {
+  const seen = [];
+  let fired = false;
+  for (let n = 0; n < 240 && S.phase !== 'matchEnd'; n++) {
+    let c0 = { ...D.NOCMD, mx: -1 };
+    // le joueur réagit dès que l'invite « Utchari » apparaît (ou, garde levée en face, quand il est collé)
+    const now = D.canUtchari(S, 0) || (attackerGuard && n > 22 && Math.hypot(o.x - p.x, o.y - p.y) < 110);
+    if (!fired && now) { c0 = { ...c0, ...dashCmd, dash: true }; fired = true; }
+    const near = Math.hypot(o.x - p.x, o.y - p.y) < 140;
+    D.step(S, [c0, { ...D.NOCMD, mx: 1, dash: n === 2, guard: attackerGuard && near && n > 12 }]);
+    for (const e of S.events) seen.push(e.type + (e.kimarite ? ':' + e.kimarite : ''));
+    S.events.length = 0;
+  }
+  return seen;
+}
+
+test('utchari : un dash tout droit suffit (la direction choisit seulement le sens du pivot)', () => {
+  const seen = playPinned(pinned(4, false), { mx: -1, my: 0 });
+  assert.ok(seen.includes('utchari'), seen.join(' '));
+});
+
+test('utchari : impossible contre un attaquant qui pousse garde levée', () => {
+  const seen = playPinned(pinned(5, true), { mx: 0, my: 1 });
+  assert.ok(!seen.includes('utchariStart'), seen.join(' '));
 });

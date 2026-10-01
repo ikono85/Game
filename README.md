@@ -28,7 +28,7 @@ synthétisés en WebAudio, aucune dépendance). Pour jouer en local : ouvrir
 | Feinte | F | Ctrl droit / 1 pavé | X |
 | Pause | Échap | Échap | Start |
 | Tenir au bord | Sur la paille, pousser vers le centre | idem | Stick vers le centre |
-| Utchari | En tenant : côté + Espace | côté + Entrée | côté + A |
+| Utchari | Au bord, quand il te pousse : Espace | Entrée | A |
 
 Touche **M** : couper le son. Contre l'IA, les deux jeux de touches contrôlent
 le rouge.
@@ -37,10 +37,12 @@ le rouge.
 le centre freine la poussée adverse, mais vide la jauge de garde (1 s). Jauge
 vide = les talons glissent.
 
-**Utchari** : en tenant, si l'adversaire est collé et pousse, un dash sur le
-côté fait pivoter les deux lutteurs autour du point de contact : c'est
-l'attaquant qui sort. Coûte le dash et une partie de la jauge ; sans contact,
-c'est un simple dash le long du bord (risqué).
+**Utchari** : quand l'adversaire te pousse sur les ballots, « Utchari » s'affiche
+au-dessus de ton lutteur : un dash (dans n'importe quelle direction, elle ne
+fait que choisir le sens du pivot) fait pivoter les deux lutteurs autour du
+point de contact, et c'est l'attaquant qui sort. L'invite reste valable 0,45 s
+pour laisser le temps de réagir. Impossible si l'attaquant pousse garde levée ;
+coûte le dash et une partie de la jauge.
 
 **Tachiai** : attends « Hakkeyoi ! ». Un dash juste après le signal pousse 30 %
 plus fort ; un dash avant le signal est un faux départ (matta) qui te fige un
