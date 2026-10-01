@@ -172,3 +172,31 @@ test('utchari : impossible contre un attaquant qui pousse garde levée', () => {
   const seen = playPinned(pinned(5, true), { mx: 0, my: 1 });
   assert.ok(!seen.includes('utchariStart'), seen.join(' '));
 });
+
+// --- Hanches basses : contre de l'utchari ---
+function utchariThenGuard(guardAtTicksAfterStart, holdGuardBefore = false) {
+  const { S, p, o } = pinned(6, false);
+  const seen = [];
+  let start = -1;
+  for (let n = 0; n < 300 && S.phase !== 'matchEnd'; n++) {
+    let c0 = { ...D.NOCMD, mx: -1 };
+    if (start < 0 && D.canUtchari(S, 0)) c0 = { ...c0, dash: true };
+    const k = start < 0 ? -1 : n - start;
+    const g = holdGuardBefore ? (start < 0 ? n > 30 : true) : k === guardAtTicksAfterStart || (k > guardAtTicksAfterStart && k < guardAtTicksAfterStart + 20);
+    D.step(S, [c0, { ...D.NOCMD, mx: start < 0 ? 1 : 0, dash: n === 2, guard: g && (start >= 0 || holdGuardBefore) }]);
+    for (const e of S.events) { seen.push(e.type); if (e.type === 'utchariStart') start = n; }
+    S.events.length = 0;
+  }
+  return seen;
+}
+
+test('hanches basses : garder pendant le soulevé fait échouer l\'utchari', () => {
+  const seen = utchariThenGuard(20);                 // 20 ticks ≈ 0,17 s après le début
+  assert.ok(seen.includes('utchariStart') && seen.includes('utchariCounter'), seen.join(' '));
+  assert.ok(!seen.includes('utchari'));
+});
+
+test('hanches basses : trop tard, l\'utchari passe', () => {
+  const seen = utchariThenGuard(40);                 // 0,33 s : le soulevé (0,28 s) est fini
+  assert.ok(seen.includes('utchari') && !seen.includes('utchariCounter'), seen.join(' '));
+});

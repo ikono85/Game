@@ -29,6 +29,7 @@ synthétisés en WebAudio, aucune dépendance). Pour jouer en local : ouvrir
 | Pause | Échap | Échap | Start |
 | Tenir au bord | Sur la paille, pousser vers le centre | idem | Stick vers le centre |
 | Utchari | Au bord, quand il te pousse : Espace | Entrée | A |
+| Hanches basses (contre) | Quand on tente l'utchari sur toi : E | Maj droite | B |
 
 Touche **M** : couper le son. Contre l'IA, les deux jeux de touches contrôlent
 le rouge.
@@ -43,6 +44,11 @@ fait que choisir le sens du pivot) fait pivoter les deux lutteurs autour du
 point de contact, et c'est l'attaquant qui sort. L'invite reste valable 0,45 s
 pour laisser le temps de réagir. Impossible si l'attaquant pousse garde levée ;
 coûte le dash et une partie de la jauge.
+
+**Hanches basses** : l'utchari commence par 0,28 s où l'on soulève l'adversaire.
+Pendant ce temps, l'attaquant voit « Hanches basses » et peut appuyer sur sa
+garde : l'utchari échoue (« Contré ! ») et celui qui l'a tenté reste
+déséquilibré au bord une demi-seconde, sans dash.
 
 **Tachiai** : attends « Hakkeyoi ! ». Un dash juste après le signal pousse 30 %
 plus fort ; un dash avant le signal est un faux départ (matta) qui te fige un

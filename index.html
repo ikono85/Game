@@ -442,7 +442,8 @@ const HOLD_BRAKE = 4;         // freinage de la vitesse vers l'extérieur (par s
 const HOLD_DRAIN = 1.8;       // la jauge de garde se vide en 1 s
 const HOLD_MASS = 1.3;        // plus lourd à pousser quand on tient face au centre
 // Utchari : pivot autour du point de contact, l'adversaire est projeté dehors
-const UT_BRACE = 0.06, UT_SWING = 0.22, UT_TOTAL = 0.4, UT_THROW = 520, UT_COST = 0.5;
+// UT_BRACE : il soulève l'adversaire ; pendant ce temps, l'adversaire peut baisser les hanches (sa garde) pour contrer
+const UT_BRACE = 0.28, UT_SWING = 0.22, UT_TOTAL = 0.62, UT_THROW = 520, UT_COST = 0.5, UT_FAIL_STUN = 0.5;
 const PI = Math.PI, TAU = PI * 2;
 const COLORS = { red: '#d2412f', blue: '#2f6fb3' };
 
@@ -467,7 +468,7 @@ function makePlayer(x, y, face) {
     breath: 0, fallT: -1, matta: false, usedTachiai: false,
     hold: false, holdTick: -99, holdTime: 0,                      // tenue au bord
     utT: -1, utS: 1, utMx: 0, utMy: 0, utFace: 0, thrown: false,  // utchari en cours (utT = temps écoulé)
-    utReadyTick: -99 };                                             // dernier instant où l'utchari était possible
+    utReadyTick: -99, gIn: false };                                // gIn : touche de garde au tick précédent                                             // dernier instant où l'utchari était possible
 }
 
 const NOCMD = Object.freeze({ mx: 0, my: 0, dash: false, feint: false, guard: false });
@@ -637,6 +638,16 @@ function startUtchari(S, i, c) {
   p.vx = p.vy = o.vx = o.vy = 0; o.dashT = 0; o.guard = false;
   S.events.push({ type: 'utchariStart', who: i, x: p.utMx, y: p.utMy });
 }
+/** Utchari contré (hanches basses) : celui qui l'a tenté reste déséquilibré au bord, sans dash. */
+function counterUtchari(S, i) {
+  const p = S.p[i], o = S.p[1 - i];
+  p.utT = -1; p.stun = UT_FAIL_STUN; p.hold = false;
+  const ex = p.x - C, ey = p.y - C, el = Math.hypot(ex, ey) || 1;
+  p.vx = ex / el * 120; p.vy = ey / el * 120;                         // il bascule vers les ballots
+  o.guard = true;                                                     // l'adversaire est campé, garde levée
+  S.events.push({ type: 'utchariCounter', who: 1 - i, x: (p.x + o.x) / 2, y: (p.y + o.y) / 2 });
+}
+
 /** Déroulé de l'utchari : appui, pivot des deux lutteurs autour du point de contact, puis projection. */
 function updateUtchari(S, i) {
   const p = S.p[i], o = S.p[1 - i];
@@ -727,10 +738,13 @@ function step(S, cmds) {
   if (S.phase === 'play') {
     S.roundT += DT;
     if (S.roundT > SHRINK_DELAY) S.ring = Math.max(RMIN, S.ring - DT * SHRINK_SPEED);
-    const busy = S.p.some(swinging);
     for (let i = 0; i < 2; i++) {
-      const p = S.p[i], c = cmds[i];
-      if (p.utT >= 0 || busy) { p.hold = false; continue; }      // pendant l'utchari, personne ne contrôle rien
+      const p = S.p[i], c = cmds[i], o = S.p[1 - i];
+      const guardPressed = c.guard && !p.gIn; p.gIn = c.guard;
+      // hanches basses : pendant que l'autre me soulève, un appui sur la garde fait échouer son utchari
+      // (il faut appuyer pendant le soulevé : garder la touche enfoncée d'avance ne compte pas)
+      if (o.utT >= 0 && o.utT < UT_BRACE && guardPressed && p.guardCd <= 0 && p.stamina > 0.2) counterUtchari(S, 1 - i);
+      if (p.utT >= 0 || S.p.some(swinging)) { p.hold = false; continue; }   // pendant l'utchari, personne ne contrôle rien
       setGuard(p, c.guard);
       if (c.dash && canUtchari(S, i)) startUtchari(S, i, c);
       else if (c.dash) tryDash(S, i);
@@ -787,31 +801,31 @@ const STYLES = {
     id: 'oshi', label: 'le Pousseur', stars: 1,
     desc: "Fonce tout droit et dashe dès qu'il est aligné. Garde rarement, ignore les feintes.",
     rate: 5, react: 0.32, guardP: 0.3, read: 0, feintP: 0, dashRange: 260, aimCos: 0.8,
-    edgeCare: 0.85, dodge: 0, tachiaiP: 0.55, mattaP: 0.18, flank: 0, patience: 0, adapt: 0, holdP: 0.15, utchariP: 0,
+    edgeCare: 0.85, dodge: 0, tachiaiP: 0.55, mattaP: 0.18, flank: 0, patience: 0, adapt: 0, holdP: 0.15, utchariP: 0, counterP: 0,
   },
   kabe: {
     id: 'kabe', label: 'le Mur', stars: 2,
     desc: "Tient le centre et garde dès qu'un dash arrive. Contre-attaque quand ta jauge de dash est vide.",
     rate: 7, react: 0.3, guardP: 0.8, read: 0.1, guardHold: 0.55, feintP: 0, dashRange: 220, aimCos: 0.92,
-    edgeCare: 0.5, dodge: 0, tachiaiP: 0.2, mattaP: 0.03, flank: 0, patience: 1, adapt: 0, center: true, holdP: 0.7, utchariP: 0,
+    edgeCare: 0.5, dodge: 0, tachiaiP: 0.2, mattaP: 0.03, flank: 0, patience: 1, adapt: 0, center: true, holdP: 0.7, utchariP: 0, counterP: 0.6,
   },
   kitsune: {
     id: 'kitsune', label: 'le Renard', stars: 3,
     desc: "Feinte pour te faire garder, puis frappe quand ta garde est vide ou que tu lui tournes le dos.",
     rate: 6, react: 0.2, guardP: 0.55, read: 0.5, feintP: 0.45, dashRange: 240, aimCos: 0.9,
-    edgeCare: 0.6, dodge: 0.1, tachiaiP: 0.4, mattaP: 0.05, flank: 0.6, patience: 0.6, adapt: 0, holdP: 0.55, utchariP: 0.07,
+    edgeCare: 0.6, dodge: 0.1, tachiaiP: 0.4, mattaP: 0.05, flank: 0.6, patience: 0.6, adapt: 0, holdP: 0.55, utchariP: 0.07, counterP: 0.5,
   },
   mai: {
     id: 'mai', label: 'le Danseur', stars: 3,
     desc: "Tourne autour de toi, esquive sur le côté au lieu de garder et attend que tu sois près du bord.",
     rate: 9, react: 0.15, guardP: 0.45, read: 0.4, feintP: 0.15, dashRange: 250, aimCos: 0.9,
-    edgeCare: 0.55, dodge: 0.4, tachiaiP: 0.25, mattaP: 0.04, flank: 0.3, patience: 0.5, adapt: 0, orbit: 220, orbitP: 0.35, holdP: 0.5, utchariP: 0.07,
+    edgeCare: 0.55, dodge: 0.4, tachiaiP: 0.25, mattaP: 0.04, flank: 0.3, patience: 0.5, adapt: 0, orbit: 220, orbitP: 0.35, holdP: 0.5, utchariP: 0.07, counterP: 0.4,
   },
   yokozuna: {
     id: 'yokozuna', label: 'le Yokozuna', stars: 5,
     desc: "Lit tes feintes, gère le bord, varie ses attaques et s'adapte à tes habitudes.",
     rate: 12, react: 0.1, guardP: 0.85, read: 0.85, feintP: 0.3, dashRange: 250, aimCos: 0.93,
-    edgeCare: 0.55, dodge: 0.25, tachiaiP: 0.7, mattaP: 0.02, flank: 0.5, patience: 0.8, adapt: 1, holdP: 0.9, utchariP: 0.3,
+    edgeCare: 0.55, dodge: 0.25, tachiaiP: 0.7, mattaP: 0.02, flank: 0.5, patience: 0.8, adapt: 1, holdP: 0.9, utchariP: 0.3, counterP: 0.85,
   },
 };
 const STYLE_ORDER = ['oshi', 'kabe', 'kitsune', 'mai', 'yokozuna'];
@@ -830,10 +844,17 @@ function aiMem() {
   return { nextDecide: 0, mx: 0, my: 0, wantDash: false, wantFeint: false, guardUntil: 0,
     reactAt: -1, reactKind: '', punishUntil: 0, lastAnim: false, dodgeDir: 1, dodgeUntil: 0, tachiaiAt: -1,
     mattaDone: false, guardsVsFeint: 0, feintsSeen: 0, blockedAt: -1, orbitDir: 1,
-    edgeRolled: false, holdOK: false, nextUt: 0, utSeen: -1 };
+    edgeRolled: false, holdOK: false, nextUt: 0, utSeen: -1, ctrAt: -1, ctrOK: false };
 }
 
+/** Commande de l'IA : au bord, un dash serait un utchari ; l'IA ne le fait que si elle l'a décidé. */
 function aiCommand(S, i) {
+  const c = aiDecide(S, i), m = S.mem[i];
+  if (m && c.dash && !m.utNow && canUtchari(S, i)) c.dash = false;
+  if (m) m.utNow = false;
+  return c;
+}
+function aiDecide(S, i) {
   const P = S.ai[i], m = S.mem[i];
   if (!P || !m) return NOCMD;
   const me = S.p[i], foe = S.p[1 - i];
@@ -850,6 +871,14 @@ function aiCommand(S, i) {
     return cmd;
   }
   if (S.phase !== 'play') return cmd;
+
+  // On me soulève pour un utchari : baisser les hanches (garde) si j'ai le réflexe et le temps
+  if (foe.utT >= 0 && foe.utT < UT_BRACE) {
+    if (m.ctrAt < 0) { m.ctrAt = tk + Math.round(P.react * SIM_HZ * (0.8 + rand(S) * 0.4)); m.ctrOK = rand(S) < (P.counterP || 0); }
+    if (m.ctrOK && tk >= m.ctrAt) cmd.guard = true;
+    return cmd;
+  }
+  m.ctrAt = -1;
 
   if (S.roundT < DT * 0.5) {   // premier tick après le signal : tachiai ?
     m.tachiaiAt = rand(S) < P.tachiaiP ? tk + Math.round((P.react * (0.6 + rand(S) * 0.6)) * SIM_HZ) : -1;
@@ -907,6 +936,7 @@ function aiCommand(S, i) {
   if (utReady && tk - m.utSeen >= Math.round(P.react * SIM_HZ) && tk >= m.nextUt) {   // il lui faut son temps de réaction
     m.nextUt = tk + 12;
     if (rand(S) < P.utchariP) {
+      m.utNow = true;
       const side = rand(S) < 0.5 ? 1 : -1;
       cmd.mx = -uy * side; cmd.my = ux * side; cmd.dash = true;
       return cmd;
@@ -1159,7 +1189,7 @@ const Sound = {
 };
 
 // --- État de présentation ---
-const newStats = () => ({ dash: 0, dashHit: 0, block: 0, feint: 0, matta: 0, best: null, hold: 0, utchari: 0 });
+const newStats = () => ({ dash: 0, dashHit: 0, block: 0, feint: 0, matta: 0, best: null, hold: 0, utchari: 0, counter: 0 });
 const G = {
   screen: 'menu',       // 'menu' | 'match'
   mode: null,           // 'versus' | 'ai' | 'career'
@@ -1183,7 +1213,7 @@ function setFlash(text, color = '#efe3c8', t = 1) { G.flash = { text, color, t }
 const fmtSec = t => `${t.toFixed(2).replace('.', ',')} s`;
 
 /** Effets visuels et sons d'un événement ; rejoués tels quels pendant le ralenti. */
-const VFX = new Set(['dash', 'feint', 'block', 'hit', 'roundWin', 'holdStart', 'slip', 'utchariStart', 'utchari']);
+const VFX = new Set(['dash', 'feint', 'block', 'hit', 'roundWin', 'holdStart', 'slip', 'utchariStart', 'utchari', 'utchariCounter']);
 function playVfx(e) {
   switch (e.type) {
     case 'dash': burst(e.x, e.y, 8, '#e8d2a4'); Sound.whoosh(0.28); break;
@@ -1201,6 +1231,7 @@ function playVfx(e) {
     case 'holdStart': burst(e.x, e.y, 10, '#c9a46b'); Sound.creak(); break;
     case 'slip': burst(e.x, e.y, 16, '#b08850'); Sound.slip(); break;
     case 'utchariStart': Sound.taiko(0, 60, 0.7); Sound.whoosh(0.35); G.cheer = Math.max(G.cheer, 1); break;
+    case 'utchariCounter': G.shake = 10; burst(e.x, e.y, 18, '#fff3c4'); Sound.block(); Sound.taiko(0, 70, 0.6); G.cheer = Math.max(G.cheer, 1.5); break;
     case 'utchari': G.shake = 16; burst(e.x, e.y, 26, '#f3e6c9'); Sound.hit(900); Sound.taiko(0.05, 95, 0.8); G.cheer = 3; break;
   }
 }
@@ -1252,6 +1283,7 @@ function handleEvents(S) {
       case 'draw': setFlash('Égalité, on recommence', '#efe3c8', 1.2); break;
       case 'holdStart': G.stats[e.who].hold++; break;
       case 'utchari': G.stats[e.who].utchari++; setFlash('Utchari !', '#ffd166', 1.4); break;
+      case 'utchariCounter': G.stats[e.who].counter++; setFlash('Contré !', '#efe3c8', 1.1); break;
       case 'roundWin':
         G.kimarite = e.kimarite;
         if (e.kimarite !== 'utchari') setFlash(`${G.names[e.who]} marque`, pc, 1.1);   // sinon « Utchari ! » reste affiché
@@ -1446,7 +1478,10 @@ function drawLabels(S, alpha) {
 /** Au bord, quand l'utchari est possible : invite dorée au-dessus du joueur humain, avec sa touche de dash. */
 function drawUtchariPrompt(S, alpha) {
   for (let i = 0; i < 2; i++) {
-    if (S.ai[i] || !canUtchari(S, i)) continue;
+    if (S.ai[i]) continue;
+    const foe = S.p[1 - i];
+    if (foe.utT >= 0 && foe.utT < UT_BRACE) { drawCounterPrompt(S, i, alpha); continue; }
+    if (!canUtchari(S, i)) continue;
     const p = S.p[i];
     const x = p.px + (p.x - p.px) * alpha, y = p.py + (p.y - p.py) * alpha - 96;
     const pulse = 1 + 0.06 * Math.sin(G.t * 18);
@@ -1463,6 +1498,27 @@ function drawUtchariPrompt(S, alpha) {
     if (pad) drawPadGlyph(w / 2 - 20, 0, 0, 18);
     ctx.restore();
   }
+}
+
+/** On me soulève : « Hanches basses » + ma touche de garde, avec une barre qui se vide (le temps pour contrer). */
+function drawCounterPrompt(S, i, alpha) {
+  const p = S.p[i], foe = S.p[1 - i];
+  const x = p.px + (p.x - p.px) * alpha, y = p.py + (p.y - p.py) * alpha - 100;
+  const left = 1 - foe.utT / UT_BRACE;
+  ctx.save(); ctx.translate(x, y);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = '400 30px "Dela Gothic One", "Arial Black", sans-serif';
+  const pad = padForPlayer(i);
+  const key = pad ? null : (i === 0 ? keyLabels.KeyE : 'Maj droite');
+  const label = key ? `Hanches basses : ${key}` : 'Hanches basses';
+  const w = ctx.measureText(label).width + (pad ? 56 : 0);
+  ctx.fillStyle = 'rgba(28,19,13,.88)';
+  ctx.beginPath(); ctx.roundRect(-w / 2 - 14, -26, w + 28, 58, 10); ctx.fill();
+  ctx.fillStyle = '#ff9a7a'; ctx.fillText(label, pad ? -24 : 0, -2);
+  if (pad) drawPadGlyph(w / 2 - 20, -2, 1, 18);
+  ctx.fillStyle = 'rgba(255,154,122,.25)'; ctx.fillRect(-w / 2, 20, w, 6);
+  ctx.fillStyle = '#ff9a7a'; ctx.fillRect(-w / 2, 20, w * left, 6);
+  ctx.restore();
 }
 
 /** Indice au tout premier départ : quelle touche pour le dash. */
@@ -1951,6 +2007,7 @@ function controlsCard(backFn) {
     ['Feinte', 'Faux dash', [L.KeyF], ['Ctrl droit', '1 pavé'], [2]],
     ['Tenir au bord', 'Sur la paille, pousse vers le centre', [{ t: 'Vers le centre' }], [{ t: 'Vers le centre' }], ['Vers le centre']],
     ['Utchari', 'Au bord, quand il te pousse', ['Espace'], ['Entrée'], [0]],
+    ['Hanches basses', 'Quand il tente l\u2019utchari sur toi', [L.KeyE], ['Maj droite'], [1]],
     ['Pause', '', ['Échap'], ['Échap'], [9]],
   ];
   const t = el('table', 'controls');
@@ -1973,7 +2030,7 @@ function controlsCard(backFn) {
     body: [
       t,
       el('p', 'note', "Les boutons s'adaptent à ta manette (Xbox, PlayStation ou Nintendo) dès qu'elle est branchée. Toutes les gâchettes servent aussi à la garde. Contre l'IA, les deux jeux de touches contrôlent le rouge."),
-      el('p', 'note', "Au bord du cercle, pousse vers le centre pour tenir : tes talons se plantent dans la paille, mais ta jauge de garde se vide, et quand elle est vide tu glisses. Et quand l'adversaire te pousse au bord, « Utchari » s'affiche au-dessus de toi : appuie sur Dash, tu pivotes et c'est lui qui sort. La direction tenue choisit le sens du pivot. Il ne marche pas s'il pousse garde levée."),
+      el('p', 'note', "Au bord du cercle, pousse vers le centre pour tenir : tes talons se plantent dans la paille, mais ta jauge de garde se vide, et quand elle est vide tu glisses. Et quand l'adversaire te pousse au bord, « Utchari » s'affiche au-dessus de toi : appuie sur Dash, tu pivotes et c'est lui qui sort. La direction tenue choisit le sens du pivot. Il ne marche pas s'il pousse garde levée. Et si c'est toi qu'on soulève, garde au bon moment (« Hanches basses ») : l'utchari échoue et c'est lui qui reste déséquilibré au bord."),
       el('p', 'note', "Départ : attends « Hakkeyoi ! ». Un dash juste après le signal pousse 30 % plus fort. Un dash avant le signal est un faux départ et te fige un instant. Touche M pour couper le son."),
       list(mbtn('Retour', null, false, backFn, 'quiet')),
     ],
@@ -2121,6 +2178,7 @@ function statsTable() {
     ['Faux départs', st => st.matta],
     ['Résistances au bord', st => st.hold],
     ['Utchari', st => st.utchari],
+    ['Utchari contrés', st => st.counter],
     ['Meilleur départ', st => st.best == null ? '–' : fmtSec(st.best)],
   ];
   for (const [label, f] of rows) {
