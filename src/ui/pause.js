@@ -8,6 +8,7 @@ import { padBadge } from '../input/gamepad.js';
 import { held, inPlay } from '../input/keyboard.js';
 import { onlineQuitScreen } from '../net/screens.js';
 import { careerBoutResult } from './career.js';
+import { dojoMenu, dojoRestart } from '../game/dojo.js';
 import { controlsCard } from './controls.js';
 import { $, ov } from './dom.js';
 import { menu } from './menus.js';
@@ -23,6 +24,22 @@ function togglePause() {
   } else resume();
 }
 function pauseCard() {
+  if (G.mode === 'watch' || G.mode === 'dojo') {
+    const dojo = G.mode === 'dojo';
+    showScreen({
+      kanji: '休憩',
+      title: 'Pause',
+      body: [list(
+        mbtn('Reprendre', keyOrPad('Échap', 9), true, resume),
+        dojo ? mbtn('Recommencer la leçon', null, false, () => { G.paused = false; dojoRestart(); }) : null,
+        dojo ? mbtn('Toutes les leçons', null, false, () => { G.paused = false; dojoMenu(); }) : null,
+        mbtn('Commandes', null, false, () => controlsCard(pauseCard)),
+        mbtn(dojo ? 'Quitter le dojo' : 'Quitter le ralenti', 'Retour au menu', false, menu, 'quiet'),
+      )],
+      back: resume,
+    });
+    return;
+  }
   showScreen({
     kanji: '休憩',
     title: 'Pause',

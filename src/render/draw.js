@@ -180,7 +180,7 @@ function drawLabels(S, alpha) {
 }
 
 /** Au bord, quand l'utchari est possible : invite dorée au-dessus du joueur humain, avec sa touche de dash. */
-const isLocalHuman = (S, i) => G.mode === 'online' && G.net ? i === G.net.me : !S.ai[i];
+const isLocalHuman = (S, i) => G.mode === 'watch' ? false : G.mode === 'dojo' ? i === 0 : G.mode === 'online' && G.net ? i === G.net.me : !S.ai[i];
 const keySlot = i => (G.mode === 'online' ? 0 : i);     // en ligne, j'utilise toujours les touches du joueur 1
 function drawUtchariPrompt(S, alpha) {
   for (let i = 0; i < 2; i++) {
@@ -229,7 +229,7 @@ function drawCounterPrompt(S, i, alpha) {
 
 /** Indice au tout premier départ : quelle touche pour le dash. */
 function drawStartHint(S) {
-  if (S.round !== 1) return;
+  if (S.round !== 1 || G.mode === 'watch') return;
   const y = C - 160;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.font = '700 30px "Zen Kaku Gothic New", sans-serif';
@@ -240,7 +240,8 @@ function drawStartHint(S) {
     ctx.fillStyle = '#efe3c8'; ctx.fillText(label, C - 26, y);
     drawPadGlyph(C - 26 + w / 2 + 34, y, PAD.dash[0], 20);
   } else {
-    const label = G.mode === 'versus' ? `Dash au signal : ${keyName(BIND[0].dash[0])} et ${keyName(BIND[1].dash[0])}` : `Dash au signal : ${keyName(BIND[0].dash[0])}`;
+    const touchOnly = matchMedia('(hover: none) and (pointer: coarse)').matches;   // téléphone, tablette
+    const label = touchOnly && G.mode !== 'versus' ? 'Dash au signal : bouton Dash' : G.mode === 'versus' ? `Dash au signal : ${keyName(BIND[0].dash[0])} et ${keyName(BIND[1].dash[0])}` : `Dash au signal : ${keyName(BIND[0].dash[0])}`;
     ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillText(label, C + 2, y + 2);
     ctx.fillStyle = '#efe3c8'; ctx.fillText(label, C, y);
   }
@@ -275,7 +276,12 @@ function render(S, alpha, dt, cam) {
   }
   ctx.setTransform(V.s, 0, 0, V.s, V.ox, V.oy);
   if (!S || S.view) return;
-  if (S.phase === 'shikiri') { drawText('Prêts…', '#efe3c8', 104); drawStartHint(S); }
+  if (S.phase === 'shikiri') {
+    // « Matta ! » (faux départ) ou « Égalité » arrivent pendant l'attente du signal : on les montre à la place de « Prêts… »
+    if (G.flash) drawText(G.flash.text, G.flash.color, G.flash.text.length > 14 ? 72 : 84);
+    else drawText('Prêts…', '#efe3c8', 104);
+    drawStartHint(S);
+  }
   else if (G.flash) drawText(G.flash.text, G.flash.color, G.flash.text.length > 14 ? 72 : 84);
 }
 

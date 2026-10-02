@@ -3,6 +3,8 @@
  */
 import { G } from '../game/state.js';
 import { netHud } from '../net/screens.js';
+import { watchHud } from '../game/watch.js';
+import { dojoHud } from '../game/dojo.js';
 import { DASH_CD, GUARD_MAX, RMIN, SHRINK_DELAY } from '../sim/constants.js';
 import { $ } from './dom.js';
 
@@ -36,12 +38,15 @@ function hud() {
   });
   let st = '';
   if (S) {
-    if (G.paused) st = 'En pause';
+    if (G.paused || (G.watch && G.watch.paused)) st = 'En pause';
+    else if (G.dojo) st = 'Dojo';
+    else if (G.watch && S.phase === 'play') st = `Ralenti partagé${G.watch.speed !== 1 ? ' · ×' + String(G.watch.speed).replace('.', ',') : ''}`;
     else if (S.phase === 'shikiri') st = 'Attends le signal…';
     else if (S.phase === 'play') st = S.roundT < SHRINK_DELAY ? `Le cercle rétrécit dans ${Math.ceil(SHRINK_DELAY - S.roundT)}` : (S.ring > RMIN ? 'Le cercle rétrécit' : 'Cercle au minimum');
   }
   if (hudEls.status.textContent !== st) hudEls.status.textContent = st;
-  netHud();
+  netHud(); watchHud(); dojoHud();
+  document.body.classList.toggle('in-dojo', !!G.dojo && G.screen === 'match');
 }
 
 export { hud, setNames, updateScore };

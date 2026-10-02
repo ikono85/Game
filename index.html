@@ -422,6 +422,39 @@ body.replaying .hud, body.replaying .touch { visibility: hidden; }
   .binds th:nth-child(1) { width: 19%; } .binds th:nth-child(2) { width: 25%; }
   .binds th:nth-child(3) { width: 30%; } .binds th:nth-child(4) { width: 26%; }
 }
+
+/* ---------- Dojo : panneau de la leçon ---------- */
+.dojo-panel {
+  position: fixed; z-index: 5; left: 50%; bottom: 14px; transform: translateX(-50%);
+  width: min(640px, calc(100% - 24px)); box-sizing: border-box; padding: 12px 16px 13px;
+  background: linear-gradient(180deg, var(--wood-hi), var(--wood));
+  border: 2px solid #1c120b; border-radius: 6px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 3px 0 rgba(0,0,0,.4);
+}
+.dj-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.dj-step { font-family: var(--font-display); font-size: 16px; line-height: 1.1; }
+.dj-reps { display: flex; gap: 5px; flex: none; }
+.dj-reps i { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--rope); box-sizing: border-box; }
+.dj-reps i.on { background: var(--gold); border-color: var(--gold); }
+.dj-goal { margin: 6px 0 0; font-size: 15px; line-height: 1.45; color: var(--paper); }
+.dj-msg { margin: 4px 0 0; min-height: 1.4em; font-size: 14px; font-weight: 700; color: var(--gold); }
+body.in-dojo .hud .stars, body.in-dojo .hud .center .label, body.in-dojo .hud .center .round { display: none; }
+@media (hover: none) and (pointer: coarse) { .dojo-panel { bottom: 84px; } }
+
+/* ---------- Ralenti partagé : barre du lecteur ---------- */
+.watch-bar {
+  position: fixed; z-index: 5; left: 50%; bottom: 14px; transform: translateX(-50%);
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; padding: 8px 10px;
+  max-width: calc(100% - 24px); box-sizing: border-box;
+  background: linear-gradient(180deg, var(--wood-hi), var(--wood));
+  border: 2px solid #1c120b; border-radius: 6px; box-shadow: 0 3px 0 rgba(0,0,0,.4);
+}
+.wb-tag { font-family: var(--font-display); font-size: 14px; color: var(--gold); padding: 0 6px; }
+body.replaying .watch-bar { display: none; }
+.share { display: flex; flex-direction: column; }
+.share-link { margin: 8px 0 4px; font-size: 14px; width: 100%; box-sizing: border-box; }
+.watch-bar .icon-btn { margin-top: 0; }
+.net-input.share-link { font: 700 14px/1.3 var(--font-body); max-width: none; padding: 8px 10px; }
 </style>
 </head><body>
 
@@ -465,6 +498,20 @@ body.replaying .hud, body.replaying .touch { visibility: hidden; }
   <div class="overlay" id="ov">
     <div class="card" id="card"></div>
   </div>
+</div>
+
+<div class="watch-bar" id="watchBar" hidden>
+  <span class="wb-tag">Ralenti partagé</span>
+  <button class="icon-btn" id="wPause" type="button">Pause<span class="kb-only"> · Espace</span></button>
+  <button class="icon-btn" id="wSpeed" type="button">Vitesse ×1<span class="kb-only"> · V</span></button>
+  <button class="icon-btn" id="wNext" type="button">Manche suivante<span class="kb-only"> · →</span></button>
+  <button class="icon-btn" id="wQuit" type="button">Quitter</button>
+</div>
+
+<div class="dojo-panel" id="dojoPanel" hidden aria-live="polite">
+  <div class="dj-head"><span class="dj-step" id="djStep"></span><span class="dj-reps" id="djReps"></span></div>
+  <p class="dj-goal" id="djGoal"></p>
+  <p class="dj-msg" id="djMsg"></p>
 </div>
 
 <div class="touch"><button id="tguard" type="button">Garde</button><button id="tfeint" type="button">Feinte</button><button id="tdash" type="button">Dash</button></div>
@@ -686,7 +733,15 @@ body.replaying .hud, body.replaying .touch { visibility: hidden; }
     // dernières secondes de la manche, image par image, pour le ralenti
     replay: null,
     back: null,
-    padFamily: null
+    padFamily: null,
+    recorder: null,
+    // enregistrement du match en cours (ralenti partageable)
+    lastReplay: null,
+    // dernier match terminé, prêt à partager
+    watch: null,
+    // lecture d'un ralenti partagé
+    dojo: null
+    // leçon du dojo en cours
   };
 
   // src/game/save.js
@@ -1630,9 +1685,9 @@ body.replaying .hud, body.replaying .touch { visibility: hidden; }
   }
   function updateHold(S, i, c) {
     const p = S.p[i], o = S.p[1 - i];
-    const dx = p.x - C, dy = p.y - C, dist = Math.hypot(dx, dy) || 1;
-    const ox = dx / dist, oy = dy / dist;
-    const inZone = dist > S.ring - EDGE_ZONE;
+    const dx = p.x - C, dy = p.y - C, dist2 = Math.hypot(dx, dy) || 1;
+    const ox = dx / dist2, oy = dy / dist2;
+    const inZone = dist2 > S.ring - EDGE_ZONE;
     const n = Math.hypot(c.mx, c.my);
     const inward = n > 0 && -(c.mx * ox + c.my * oy) / n > 0.5;
     const vout = p.vx * ox + p.vy * oy;
@@ -1663,16 +1718,16 @@ body.replaying .hud, body.replaying .touch { visibility: hidden; }
   function utchariReady(S, i) {
     const p = S.p[i], o = S.p[1 - i];
     if (S.phase !== "play" || p.utT >= 0 || o.utT >= 0 || p.cd > 0 || p.stun > 0 || p.guard || p.stamina < 0.15) return false;
-    const ex = p.x - C, ey = p.y - C, dist = Math.hypot(ex, ey) || 1;
-    if (dist < S.ring - 14) return false;
-    const vout = (p.vx * ex + p.vy * ey) / dist;
+    const ex = p.x - C, ey = p.y - C, dist2 = Math.hypot(ex, ey) || 1;
+    if (dist2 < S.ring - 14) return false;
+    const vout = (p.vx * ex + p.vy * ey) / dist2;
     if (S.tick - p.holdTick > 24 && vout < 120) return false;
     const dx = o.x - p.x, dy = o.y - p.y, d = Math.hypot(dx, dy) || 1;
     if (d > p.r + o.r + 60) return false;
-    const toward = (o.vx * -dx + o.vy * -dy) / d;
+    const toward2 = (o.vx * -dx + o.vy * -dy) / d;
     const facing = (Math.cos(o.face) * -dx + Math.sin(o.face) * -dy) / d;
     if (o.guard && facing > 0.3) return false;
-    return o.dashT > 0 || toward > 60 && facing > 0.3;
+    return o.dashT > 0 || toward2 > 60 && facing > 0.3;
   }
   function canUtchari(S, i) {
     const p = S.p[i], o = S.p[1 - i];
@@ -1953,241 +2008,329 @@ body.replaying .hud, body.replaying .touch { visibility: hidden; }
     return save.career;
   }
 
+  // src/sim/cmd.js
+  function packIn(c) {
+    let qx = 0, qy = 0;
+    const n = Math.hypot(c.mx, c.my);
+    if (n > 0) {
+      qx = Math.round(c.mx / n * 100);
+      qy = Math.round(c.my / n * 100);
+    }
+    return qx + 128 << 16 | qy + 128 << 8 | (c.dash ? 1 : 0) | (c.feint ? 2 : 0) | (c.guard ? 4 : 0);
+  }
+  function unpackIn(v) {
+    return { mx: (v >> 16 & 255) - 128, my: (v >> 8 & 255) - 128, dash: !!(v & 1), feint: !!(v & 2), guard: !!(v & 4) };
+  }
+  var NO_IN = packIn(NOCMD);
+  var DIRS = 64;
+  var STEP = 2 * Math.PI / DIRS;
+  function localCmd(c) {
+    if (!c.mx && !c.my) return packIn(c);
+    const a = Math.round(Math.atan2(c.my, c.mx) / STEP) * STEP;
+    return packIn({ mx: Math.cos(a), my: Math.sin(a), dash: c.dash, feint: c.feint, guard: c.guard });
+  }
+
+  // src/game/replayfile.js
+  var REPLAY_VER = 1;
+  var MAX_TICKS = 120 * 60 * 15;
+  var MAX_ROUNDS = 64;
+  var roundHead = (S) => ({ seed: S.seed | 0, signalAt: S.signalAt, score: S.score.slice(), round: S.round, rn: S.rn, tick: S.tick, n: 0, c: [[], []] });
+  function newRecorder(S, meta) {
+    return { meta: { ...meta, ai: meta.ai || [null, null] }, rounds: [roundHead(S)], final: null, ticks: 0, over: false };
+  }
+  function recordTick(R, S, v, rn0) {
+    if (!R || R.over) return;
+    if (++R.ticks > MAX_TICKS || R.rounds.length > MAX_ROUNDS) {
+      R.over = true;
+      return;
+    }
+    const cur = R.rounds[R.rounds.length - 1];
+    cur.n++;
+    for (let i = 0; i < 2; i++) if (!R.meta.ai[i]) cur.c[i].push(v[i]);
+    if (S.rn !== rn0) R.rounds.push(roundHead(S));
+    if (S.phase === "matchEnd" && !R.final) R.final = { score: S.score.slice(), w: S.matchWinner };
+  }
+  function recordingFromTicks(T, endTick, final) {
+    const R = { meta: { ...T.meta, ai: [null, null] }, rounds: [{ ...T.head0, n: 0, c: [[], []] }], final, ticks: 0, over: false };
+    for (let t = 1; t <= endTick; t++) {
+      const v = T.inp[t];
+      if (!v || v[0] === void 0 || v[1] === void 0) {
+        R.over = true;
+        break;
+      }
+      const cur = R.rounds[R.rounds.length - 1];
+      cur.n++;
+      cur.c[0].push(v[0]);
+      cur.c[1].push(v[1]);
+      const h = T.heads.get(t);
+      if (h && t < endTick) R.rounds.push({ ...h, n: 0, c: [[], []] });
+      if (++R.ticks > MAX_TICKS || R.rounds.length > MAX_ROUNDS) {
+        R.over = true;
+        break;
+      }
+    }
+    return R;
+  }
+  var replayReady = (R) => !!(R && !R.over && R.final);
+  function writer() {
+    let buf = new Uint8Array(4096), n = 0;
+    const need = (k) => {
+      if (n + k > buf.length) {
+        const b = new Uint8Array(Math.max(buf.length * 2, n + k));
+        b.set(buf);
+        buf = b;
+      }
+    };
+    return {
+      u8(v) {
+        need(1);
+        buf[n++] = v & 255;
+      },
+      vu(v) {
+        need(5);
+        v >>>= 0;
+        while (v > 127) {
+          buf[n++] = v & 127 | 128;
+          v >>>= 7;
+        }
+        buf[n++] = v;
+      },
+      i32(v) {
+        need(4);
+        new DataView(buf.buffer).setInt32(n, v | 0, true);
+        n += 4;
+      },
+      f64(v) {
+        need(8);
+        new DataView(buf.buffer).setFloat64(n, v, true);
+        n += 8;
+      },
+      bytes(b) {
+        need(b.length);
+        buf.set(b, n);
+        n += b.length;
+      },
+      done: () => buf.slice(0, n)
+    };
+  }
+  function reader(buf) {
+    let n = 0;
+    const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+    const need = (k) => {
+      if (n + k > buf.length) throw new Error("court");
+    };
+    return {
+      u8() {
+        need(1);
+        return buf[n++];
+      },
+      vu() {
+        let v = 0, s = 0, b;
+        do {
+          need(1);
+          b = buf[n++];
+          v += (b & 127) * 2 ** s;
+          s += 7;
+          if (s > 35) throw new Error("varint");
+        } while (b & 128);
+        return v;
+      },
+      i32() {
+        need(4);
+        const v = dv.getInt32(n, true);
+        n += 4;
+        return v;
+      },
+      f64() {
+        need(8);
+        const v = dv.getFloat64(n, true);
+        n += 8;
+        return v;
+      },
+      bytes(k) {
+        need(k);
+        const b = buf.subarray(n, n + k);
+        n += k;
+        return b;
+      },
+      end: () => n === buf.length
+    };
+  }
+  function writeRuns(w, list2) {
+    let i = 0;
+    while (i < list2.length) {
+      let j = i + 1;
+      while (j < list2.length && list2[j] === list2[i]) j++;
+      const v = list2[i];
+      w.u8(v >> 16);
+      w.u8(v >> 8);
+      w.u8(v);
+      w.vu(j - i);
+      i = j;
+    }
+  }
+  function readRuns(r, count) {
+    const out2 = new Array(count);
+    let i = 0;
+    while (i < count) {
+      const v = (r.u8() << 16 | r.u8() << 8 | r.u8()) >>> 0, k = r.vu();
+      if (k < 1 || i + k > count) throw new Error("runs");
+      out2.fill(v, i, i + k);
+      i += k;
+    }
+    return out2;
+  }
+  async function pipe(bytes, stream) {
+    const s = new Blob([bytes]).stream().pipeThrough(stream);
+    return new Uint8Array(await new Response(s).arrayBuffer());
+  }
+  function toB64url(b) {
+    let s = "";
+    for (let i = 0; i < b.length; i += 32768) s += String.fromCharCode.apply(null, b.subarray(i, i + 32768));
+    return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+  function fromB64url(t) {
+    const s = atob(t.replace(/-/g, "+").replace(/_/g, "/"));
+    const b = new Uint8Array(s.length);
+    for (let i = 0; i < s.length; i++) b[i] = s.charCodeAt(i);
+    return b;
+  }
+  async function encodeReplay(R) {
+    if (!replayReady(R)) throw new Error("incomplet");
+    const w = writer();
+    w.u8(68);
+    w.u8(68);
+    w.u8(REPLAY_VER);
+    const m = R.meta;
+    const json = new TextEncoder().encode(JSON.stringify({
+      mode: m.mode,
+      names: m.names,
+      skins: m.skins,
+      win: m.win,
+      ai: m.ai,
+      final: R.final,
+      kim: m.kimarite || null
+    }));
+    w.vu(json.length);
+    w.bytes(json);
+    w.vu(R.rounds.length);
+    for (const h of R.rounds) {
+      w.i32(h.seed);
+      w.f64(h.signalAt);
+      w.vu(h.score[0]);
+      w.vu(h.score[1]);
+      w.vu(h.round);
+      w.vu(h.rn);
+      w.vu(h.tick);
+      w.vu(h.n);
+      for (let i = 0; i < 2; i++) if (!m.ai[i]) writeRuns(w, h.c[i]);
+    }
+    return toB64url(await pipe(w.done(), new CompressionStream("deflate-raw")));
+  }
+  async function decodeReplay(text) {
+    if (!/^[A-Za-z0-9_-]{8,}$/.test(text)) throw new Error("format");
+    let raw;
+    try {
+      raw = await pipe(fromB64url(text), new DecompressionStream("deflate-raw"));
+    } catch {
+      throw new Error("format");
+    }
+    if (raw.length > 8e6) throw new Error("taille");
+    const r = reader(raw);
+    if (r.u8() !== 68 || r.u8() !== 68) throw new Error("format");
+    if (r.u8() !== REPLAY_VER) throw new Error("version");
+    const meta = JSON.parse(new TextDecoder().decode(r.bytes(r.vu())));
+    const ai = [0, 1].map((i) => {
+      const a = meta.ai && meta.ai[i];
+      return a && STYLES[a.style] && Number.isFinite(a.level) ? { style: a.style, level: Math.min(1, Math.max(0, a.level)) } : null;
+    });
+    const nr = r.vu();
+    if (nr < 1 || nr > MAX_ROUNDS) throw new Error("manches");
+    const rounds = [];
+    let total = 0;
+    for (let k = 0; k < nr; k++) {
+      const h = { seed: r.i32(), signalAt: r.f64(), score: [r.vu(), r.vu()], round: r.vu(), rn: r.vu(), tick: r.vu(), n: r.vu(), c: [[], []] };
+      if ((total += h.n) > MAX_TICKS || !Number.isFinite(h.signalAt)) throw new Error("taille");
+      for (let i = 0; i < 2; i++) if (!ai[i]) h.c[i] = readRuns(r, h.n);
+      rounds.push(h);
+    }
+    if (!r.end()) throw new Error("format");
+    const win = [1, 2, 3].includes(meta.win) ? meta.win : 3;
+    const final = meta.final && Array.isArray(meta.final.score) ? { score: meta.final.score.slice(0, 2).map((x) => x | 0), w: meta.final.w === 1 ? 1 : 0 } : null;
+    if (!final) throw new Error("format");
+    const str = (v, d) => typeof v === "string" ? v.replace(/[\u0000-\u001f\u007f]/g, "").slice(0, 24) || d : d;
+    return {
+      meta: {
+        mode: str(meta.mode, "versus"),
+        win,
+        ai,
+        kimarite: meta.kim === "utchari" ? "utchari" : null,
+        names: [str(meta.names && meta.names[0], "Rouge"), str(meta.names && meta.names[1], "Bleu")],
+        skins: [str(meta.skins && meta.skins[0], "rouge"), str(meta.skins && meta.skins[1], "blue")]
+      },
+      rounds,
+      final,
+      ticks: total,
+      over: false
+    };
+  }
+  function newPlayback(R) {
+    const ai = R.meta.ai.map((a) => a ? makeProfile(a.style, a.level) : null);
+    const S = newMatch({ seed: 0, win: R.meta.win, ai });
+    applyHead(S, R.rounds[0]);
+    return { R, S, r: 0, k: 0, diverged: 0 };
+  }
+  function applyHead(S, h) {
+    S.seed = h.seed;
+    S.signalAt = h.signalAt;
+    S.score = h.score.slice();
+    S.round = h.round;
+    S.rn = h.rn;
+    S.tick = h.tick;
+  }
+  function playbackStep(P) {
+    const S = P.S;
+    if (S.phase === "matchEnd") return;
+    const h = P.R.rounds[P.r];
+    if (!h || P.k >= h.n) {
+      forceNext(P);
+      return;
+    }
+    const v = [0, 1].map((i) => S.ai[i] ? localCmd(aiCommand(S, i)) : h.c[i][P.k]);
+    const rn0 = S.rn;
+    step(S, [unpackIn(v[0]), unpackIn(v[1])]);
+    P.k++;
+    if (S.rn !== rn0) {
+      P.r++;
+      P.k = 0;
+      const nx = P.R.rounds[P.r];
+      if (nx) applyHead(S, nx);
+    }
+  }
+  function forceNext(P) {
+    const S = P.S;
+    P.diverged++;
+    const nx = P.R.rounds[P.r + 1];
+    if (nx) {
+      startRound(S);
+      applyHead(S, nx);
+      P.r++;
+      P.k = 0;
+      return;
+    }
+    S.score = P.R.final.score.slice();
+    S.phase = "matchEnd";
+    S.matchWinner = P.R.final.w;
+    S.endTick = S.tick;
+    S.events.push({ type: "matchWin", who: S.matchWinner });
+  }
+
   // src/ui/dom.js
   var $ = (id) => document.getElementById(id);
   var cv = $("c");
   var ctx = cv.getContext("2d");
   var ov = $("ov");
   var card = $("card");
-
-  // src/ui/hud.js
-  var hudEls = { d1: $("d1"), d2: $("d2"), g1: $("g1"), g2: $("g2"), status: $("status"), n1: $("n1"), n2: $("n2") };
-  var rankEls = document.querySelectorAll(".who .rank");
-  function setNames(n1, r1, n2, r2) {
-    hudEls.n1.textContent = n1;
-    hudEls.n2.textContent = n2;
-    rankEls[0].textContent = r1;
-    rankEls[1].textContent = r2;
-  }
-  function updateScore() {
-    const S = G.screen === "match" ? G.S : null;
-    const win = S ? S.win : 3, score = S ? S.score : [0, 0];
-    [["st1", 0], ["st2", 1]].forEach(([id, i]) => {
-      $(id).replaceChildren(...Array.from({ length: win }, (_, k) => {
-        const d = document.createElement("span");
-        d.className = "star" + (k < score[i] ? " on" : "");
-        return d;
-      }));
-    });
-    $("roundNo").textContent = S ? S.round : 1;
-  }
-  function hud() {
-    const S = G.screen === "match" ? G.S : null;
-    [[0, "d1", "g1"], [1, "d2", "g2"]].forEach(([i, d, g]) => {
-      const p = S ? S.p[i] : null;
-      const cd = p ? p.cd : 0, st2 = p ? p.stamina : GUARD_MAX, br = p ? p.guardCd > 0 : false;
-      hudEls[d].style.transform = `scaleX(${1 - cd / DASH_CD})`;
-      hudEls[d].classList.toggle("ready", cd <= 0);
-      hudEls[g].style.transform = `scaleX(${st2 / GUARD_MAX})`;
-      hudEls[g].classList.toggle("broken", br);
-    });
-    let st = "";
-    if (S) {
-      if (G.paused) st = "En pause";
-      else if (S.phase === "shikiri") st = "Attends le signal…";
-      else if (S.phase === "play") st = S.roundT < SHRINK_DELAY ? `Le cercle rétrécit dans ${Math.ceil(SHRINK_DELAY - S.roundT)}` : S.ring > RMIN ? "Le cercle rétrécit" : "Cercle au minimum";
-    }
-    if (hudEls.status.textContent !== st) hudEls.status.textContent = st;
-    netHud();
-  }
-
-  // src/render/effects.js
-  function burst(x, y, n, color) {
-    for (let i = 0; i < n; i++) {
-      const a = Math.random() * TAU, s = 80 + Math.random() * 260;
-      G.particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.5 + Math.random() * 0.4, color });
-    }
-  }
-  function setFlash(text, color = "#efe3c8", t = 1) {
-    G.flash = { text, color, t };
-  }
-  var fmtSec = (t) => `${t.toFixed(2).replace(".", ",")} s`;
-  var VFX = /* @__PURE__ */ new Set(["dash", "feint", "block", "hit", "roundWin", "holdStart", "slip", "utchariStart", "utchari", "utchariCounter"]);
-  function playVfx(e) {
-    switch (e.type) {
-      case "dash":
-        burst(e.x, e.y, 8, "#e8d2a4");
-        Sound.whoosh(0.28);
-        break;
-      case "feint":
-        burst(e.x, e.y, 8, "#e8d2a4");
-        Sound.whoosh(0.12);
-        break;
-      case "block":
-        burst(e.x, e.y, 14, "#fff3c4");
-        Sound.block();
-        break;
-      case "hit":
-        if (e.force > 250) {
-          G.shake = Math.min(18, e.force / 45);
-          burst(e.x, e.y, Math.min(18, e.force / 40 | 0), "#f3e6c9");
-          Sound.hit(e.force);
-        }
-        if (e.force > 650) G.cheer = Math.max(G.cheer, 0.7);
-        break;
-      case "roundWin":
-        G.cheer = 2.4;
-        G.shake = 20;
-        burst(e.x, e.y, 30, "#e8d2a4");
-        Sound.thud();
-        break;
-      case "holdStart":
-        burst(e.x, e.y, 10, "#c9a46b");
-        Sound.creak();
-        break;
-      case "slip":
-        burst(e.x, e.y, 16, "#b08850");
-        Sound.slip();
-        break;
-      case "utchariStart":
-        Sound.taiko(0, 60, 0.7);
-        Sound.whoosh(0.35);
-        G.cheer = Math.max(G.cheer, 1);
-        break;
-      case "utchariCounter":
-        G.shake = 10;
-        burst(e.x, e.y, 18, "#fff3c4");
-        Sound.block();
-        Sound.taiko(0, 70, 0.6);
-        G.cheer = Math.max(G.cheer, 1.5);
-        break;
-      case "utchari":
-        G.shake = 16;
-        burst(e.x, e.y, 26, "#f3e6c9");
-        Sound.hit(900);
-        Sound.taiko(0.05, 95, 0.8);
-        G.cheer = 3;
-        break;
-    }
-  }
-  function onReaction(e) {
-    const st = G.stats[e.who];
-    st.best = st.best == null ? e.t : Math.min(st.best, e.t);
-    let record = false;
-    if (isLocalHuman(G.S, e.who)) {
-      if (save.bestReact != null && e.t < save.bestReact) record = true;
-      if (save.bestReact == null || e.t < save.bestReact) {
-        save.bestReact = e.t;
-        persist();
-      }
-    }
-    G.labels = G.labels.filter((l) => l.who !== e.who);
-    G.labels.push({
-      who: e.who,
-      text: fmtSec(e.t),
-      sub: record ? "Record !" : e.perfect ? "Tachiai parfait" : null,
-      hot: record || e.perfect,
-      t: 1.8
-    });
-  }
-  function handleEvents(S) {
-    const fx = [];
-    for (const e of S.events) {
-      const pc = e.who === 0 ? COLORS.red : COLORS.blue;
-      if (VFX.has(e.type)) {
-        playVfx(e);
-        fx.push(e);
-      }
-      switch (e.type) {
-        case "roundStart":
-          G.zabuton.length = 0;
-          G.rec.length = 0;
-          G.labels = [];
-          Sound.taiko(0, 70, 0.5);
-          Sound.taiko(0.18, 70, 0.35);
-          break;
-        case "hakkeyoi":
-          setFlash("Hakkeyoi !", "#efe3c8", 0.7);
-          Sound.hyoshigi();
-          Sound.taiko(0.02, 90, 0.7);
-          break;
-        case "matta":
-          setFlash(`Matta ! ${G.names[e.who]}`, pc, 1);
-          Sound.buzz();
-          G.stats[e.who].matta++;
-          break;
-        case "tachiai":
-          Sound.taiko(0, 110, 0.6);
-          G.cheer = Math.max(G.cheer, 0.6);
-          break;
-        case "reaction":
-          onReaction(e);
-          break;
-        case "dash":
-          G.stats[e.who].dash++;
-          G.dashOpen[e.who] = S.tick;
-          break;
-        case "feint":
-          G.stats[e.who].feint++;
-          break;
-        case "block":
-          setFlash("Bloqué !", "#efe3c8", 0.6);
-          G.stats[e.who].block++;
-          break;
-        case "hit":
-          if (e.force > 200) for (let k = 0; k < 2; k++) {
-            if (G.dashOpen[k] !== false && S.tick - G.dashOpen[k] <= SIM_HZ / 2) {
-              G.stats[k].dashHit++;
-              G.dashOpen[k] = false;
-            }
-          }
-          break;
-        case "draw":
-          setFlash("Égalité, on recommence", "#efe3c8", 1.2);
-          break;
-        case "holdStart":
-          G.stats[e.who].hold++;
-          break;
-        case "utchari":
-          G.stats[e.who].utchari++;
-          setFlash("Utchari !", "#ffd166", 1.4);
-          break;
-        case "utchariCounter":
-          G.stats[e.who].counter++;
-          setFlash("Contré !", "#efe3c8", 1.1);
-          break;
-        case "roundWin":
-          G.kimarite = e.kimarite;
-          if (e.kimarite !== "utchari") setFlash(`${G.names[e.who]} marque`, pc, 1.1);
-          updateScore();
-          break;
-        case "matchWin":
-          if (G.mode !== "online") onMatchEnd(e.who);
-          break;
-      }
-    }
-    S.events.length = 0;
-    return fx;
-  }
-  function throwZabuton(n = 40) {
-    for (let i = 0; i < n; i++) {
-      const s = seats_default[Math.random() * seats_default.length | 0];
-      const a = Math.random() * TAU, r = Math.random() * 300;
-      G.zabuton.push({
-        x0: s[0],
-        y0: s[1],
-        x1: C + Math.cos(a) * r,
-        y1: C + Math.sin(a) * r,
-        t: -Math.random() * 1.2,
-        dur: 0.8 + Math.random() * 0.5,
-        rot: Math.random() * TAU,
-        spin: (Math.random() - 0.5) * 14,
-        hue: ["#6b3a7a", "#8c2f3c", "#3d5a80", "#7a5c2e"][Math.random() * 4 | 0]
-      });
-    }
-    G.cheer = 4;
-    if (Sound.ok()) for (let i = 0; i < 10; i++) Sound.noiseHit(Sound.ctx.currentTime + Math.random() * 1.6, { f: 400, vol: 0.12, dec: 0.12 });
-  }
 
   // src/render/view.js
   var VIEW_H = 1300;
@@ -2438,19 +2581,6 @@ body.replaying .hud, body.replaying .touch { visibility: hidden; }
     crypto.getRandomValues(b);
     return Array.from(b, (x) => CODE_CHARS[x % CODE_CHARS.length]).join("");
   }
-  function packIn(c) {
-    let qx = 0, qy = 0;
-    const n = Math.hypot(c.mx, c.my);
-    if (n > 0) {
-      qx = Math.round(c.mx / n * 100);
-      qy = Math.round(c.my / n * 100);
-    }
-    return qx + 128 << 16 | qy + 128 << 8 | (c.dash ? 1 : 0) | (c.feint ? 2 : 0) | (c.guard ? 4 : 0);
-  }
-  function unpackIn(v) {
-    return { mx: (v >> 16 & 255) - 128, my: (v >> 8 & 255) - 128, dash: !!(v & 1), feint: !!(v & 2), guard: !!(v & 4) };
-  }
-  var NO_IN = packIn(NOCMD);
   var predictIn = (v) => v & ~3;
   function peerOpts() {
     return Object.assign({ debug: 0 }, window.__peerOpts || {});
@@ -2606,12 +2736,19 @@ body.replaying .hud, body.replaying .touch { visibility: hidden; }
     }
     const now = performance.now(), at = Math.max(now + lag.ms + Math.random() * (lag.jitter || 0), N.lagAt || 0);
     N.lagAt = at;
-    setTimeout(() => {
+    (N.lagQ || (N.lagQ = [])).push({ at, m });
+    if (N.lagQ.length === 1) lagFlush(N);
+  }
+  function lagFlush(N) {
+    const q = N.lagQ;
+    while (q.length && q[0].at <= performance.now()) {
+      const { m } = q.shift();
       if (N.conn && N.conn.open) try {
         N.conn.send(m);
       } catch {
       }
-    }, at - now);
+    }
+    if (q.length) setTimeout(() => lagFlush(N), Math.max(0, q[0].at - performance.now()));
   }
   var setNetStatus = (N, text) => {
     if (N.statusEl) N.statusEl.textContent = text;
@@ -2780,6 +2917,7 @@ body.replaying .hud, body.replaying .touch { visibility: hidden; }
     handleEvents(G.S);
     const M = N.M = newNetMatch();
     M.snaps.set(0, { s: structuredClone(G.S), c: {} });
+    M.rec = { meta: { mode: "online", names: G.names.slice(), skins: [st.skin, "blue"], win: st.win }, head0: roundHead(G.S), inp: [], heads: /* @__PURE__ */ new Map() };
     G.last = performance.now();
     const early = N.early;
     N.early = [];
@@ -2789,13 +2927,13 @@ body.replaying .hud, body.replaying .touch { visibility: hidden; }
     const them = 1 - G.net.me;
     for (let k = 0; k < vals.length && k < 2e3; k++) {
       const t = start + k;
-      if (t <= M.remoteTop) continue;
-      if (t !== M.remoteTop + 1) break;
+      if (t <= M.remoteTop || M.inp[them][t] !== void 0) continue;
+      if (t > M.remoteTop + NET_KEEP) break;
       const v = vals[k] & 16777215;
       M.inp[them][t] = v;
-      M.remoteTop = t;
       if (G.S && t <= G.S.tick && M.used[t] !== v) M.rollFrom = Math.min(M.rollFrom, t);
     }
+    while (M.inp[them][M.remoteTop + 1] !== void 0) M.remoteTop++;
   }
   function netCmds(M, t) {
     const me = G.net.me, them = 1 - me;
@@ -2808,8 +2946,12 @@ body.replaying .hud, body.replaying .touch { visibility: hidden; }
     return cmds;
   }
   function netStep(M) {
-    const S = G.S;
-    step(S, netCmds(M, S.tick + 1));
+    const S = G.S, t = S.tick + 1, rn0 = S.rn;
+    step(S, netCmds(M, t));
+    const me = G.net.me;
+    M.rec.inp[t] = me === 0 ? [M.inp[0][t], M.used[t]] : [M.used[t], M.inp[1][t]];
+    if (S.rn !== rn0) M.rec.heads.set(t, roundHead(S));
+    else M.rec.heads.delete(t);
     const all = S.events, show = [];
     for (const e of all) {
       if (e.type === "hit" && e.force <= 200) continue;
@@ -2929,7 +3071,7 @@ body.replaying .hud, body.replaying .touch { visibility: hidden; }
           G.acc = Math.min(G.acc, DT);
           break;
         }
-        const v = packIn(window.__netBot ? window.__netBot(S, N.me) : humanCmd(0, S));
+        const v = localCmd(window.__netBot ? window.__netBot(S, N.me) : humanCmd(0, S));
         M.inp[N.me][++M.localTop] = v;
         M.out.push(v);
         G.acc -= DT;
@@ -2942,7 +3084,7 @@ body.replaying .hud, body.replaying .touch { visibility: hidden; }
       }
       const ti = S.tick + 1 + NET_DELAY;
       if (ti > M.localTop) {
-        const v = packIn(window.__netBot ? window.__netBot(S, N.me) : humanCmd(0, S));
+        const v = localCmd(window.__netBot ? window.__netBot(S, N.me) : humanCmd(0, S));
         for (let t = M.localTop + 1; t <= ti; t++) {
           M.inp[N.me][t] = v;
           M.out.push(v);
@@ -2987,6 +3129,8 @@ body.replaying .hud, body.replaying .touch { visibility: hidden; }
     N.M.ended = true;
     N.phase = "result";
     N.resultW = w;
+    const S = G.S;
+    G.lastReplay = recordingFromTicks(N.M.rec, S.phase === "matchEnd" && S.endTick ? Math.min(S.endTick, S.tick) : S.tick, { score: S.score.slice(), w });
     G.acc = 0;
     startReplay(() => {
       if (G.net !== N) return;
@@ -3070,6 +3214,515 @@ body.replaying .hud, body.replaying .touch { visibility: hidden; }
     } catch {
     }
   });
+
+  // src/ui/career.js
+  function wardrobe(backFn) {
+    const best = save.career ? save.career.best : 0;
+    const grid = el("div", "swatches");
+    SKINS.filter((s) => !s.hidden).forEach((s) => {
+      const b = el("button", "swatch" + (save.skin === s.id ? " sel" : ""));
+      b.type = "button";
+      const cnv = document.createElement("canvas");
+      cnv.width = 128;
+      cnv.height = 128;
+      const draw = () => {
+        const sh = skinSheet(s.id);
+        if (!sheetReady(sh)) return setTimeout(draw, 100);
+        const g = cnv.getContext("2d");
+        g.clearRect(0, 0, 128, 128);
+        g.translate(64, 64);
+        g.rotate(-PI / 2);
+        g.drawImage(sh, FRAME * 0.2, FRAME * 0.2, FRAME * 0.6, FRAME * 0.6, -64, -64, 128, 128);
+      };
+      draw();
+      const unlocked = s.rank <= best;
+      b.append(cnv, el("span", null, s.name), el("small", null, !unlocked ? `Rang ${RANKS[s.rank].name}` : save.skin === s.id ? "Portée" : "Disponible"));
+      b.disabled = !unlocked;
+      b.addEventListener("click", () => {
+        save.skin = s.id;
+        G.skins[0] = s.id;
+        persist();
+        Sound.click();
+        wardrobe(backFn);
+      });
+      grid.append(b);
+    });
+    showScreen({
+      kanji: "締込",
+      title: "Vestiaire",
+      lead: "Choisis ta ceinture. Monte dans le classement en mode Carrière pour en débloquer de nouvelles.",
+      body: [grid, list(mbtn("Retour", null, false, backFn, "quiet"))],
+      focus: ".swatch.sel",
+      back: backFn
+    });
+  }
+  function careerHub() {
+    const c = career(), b = c.basho;
+    G.screen = "menu";
+    G.mode = null;
+    setNames("Rouge", "Est", "Bleu", "Ouest");
+    updateScore();
+    const rk = RANKS[c.rank];
+    const ranks = el("ol", "ranks");
+    ranks.setAttribute("aria-label", "Rangs du banzuke");
+    RANKS.forEach((r, k) => ranks.append(el("li", k === c.rank ? "now" : k <= c.best ? "done" : "", r.name)));
+    const o = b.opps[b.day];
+    const vs = el("div", "versus");
+    vs.append(
+      el("p", "sub-h", `Jour ${b.day + 1}, ton adversaire (${RANKS[o.rank].name})`),
+      el("div", "who2", o.name),
+      el("div", "sty", `${STYLES[o.style].label[0].toUpperCase() + STYLES[o.style].label.slice(1)}. ${STYLES[o.style].desc}`)
+    );
+    const row = el("div", "row-btns");
+    row.append(mbtn("Vestiaire", null, false, () => wardrobe(careerHub), "quiet"), mbtn("Menu", null, false, menu, "quiet"));
+    let armed = false;
+    const reset = mbtn("Recommencer la carrière", null, false, () => {
+      if (!armed) {
+        armed = true;
+        reset.firstChild.textContent = "Tout effacer ? Clique encore pour confirmer";
+        reset.classList.add("danger");
+        return;
+      }
+      save.career = null;
+      save.skin = "rouge";
+      G.skins[0] = "rouge";
+      persist();
+      careerHub();
+    }, "quiet");
+    showScreen({
+      kanji: rk.kanji,
+      title: rk.name,
+      lead: `Basho ${c.bashoNo}. Gagne au moins ${Math.floor(BASHO_DAYS / 2) + 1} combats sur ${BASHO_DAYS} pour monter au rang suivant.`,
+      body: [
+        ranks,
+        recordEl(b.results, b.day),
+        vs,
+        list(mbtn("Combattre", "Une manche, comme au vrai sumo", true, () => startMatch({ mode: "career", opp: o })), row, reset)
+      ],
+      back: menu
+    });
+  }
+  function careerBoutResult(won) {
+    const c = career(), b = c.basho;
+    const o = b.opps[b.day];
+    b.results.push(won ? 1 : 0);
+    b.day++;
+    persist();
+    const wins = b.results.filter((x) => x).length, losses = b.results.length - wins;
+    const next = b.day >= BASHO_DAYS ? mbtn("Voir le classement", "Fin du basho", true, bashoEnd) : mbtn("Jour suivant", `${wins} victoire${wins > 1 ? "s" : ""}, ${losses} défaite${losses > 1 ? "s" : ""}`, true, careerHub);
+    showScreen({
+      kanji: won ? "勝" : "負",
+      seal: won ? "shu" : "ink",
+      title: won ? "Victoire" : "Défaite",
+      lead: `Jour ${b.day} contre ${o.name}` + (G.kimarite === "utchari" && won ? ", gagné par utchari." : "."),
+      body: [recordEl(b.results, -1), statsTable(), list(next, G.S && G.S.phase === "matchEnd" && G.S.endTick ? shareButton(G.lastReplay) : null)]
+    });
+  }
+  function bashoEnd() {
+    const c = career(), b = c.basho;
+    const wins = b.results.filter((x) => x).length, results = b.results.slice();
+    const before = c.rank, bestBefore = c.best;
+    let verdict, cls;
+    const perfect = wins === BASHO_DAYS, kachi = wins * 2 > BASHO_DAYS;
+    if (perfect) c.yusho++;
+    if (c.rank === 9) {
+      cls = kachi ? "up" : "down";
+      verdict = perfect ? "Sept victoires sur sept : un basho parfait pour le Yokozuna" : kachi ? "Plus de victoires que de défaites : le Yokozuna tient son rang" : "Plus de défaites que de victoires, mais un Yokozuna ne descend pas";
+    } else if (c.rank === 8 && wins >= 6) {
+      c.rank = 9;
+      verdict = "Promu Yokozuna";
+      cls = "up";
+    } else if (c.rank === 8 && kachi) {
+      verdict = "Plus de victoires que de défaites : tu restes Ōzeki. Il en faut 6 pour devenir Yokozuna";
+      cls = "up";
+    } else if (perfect) {
+      c.rank = Math.min(8, c.rank + 2);
+      verdict = c.rank - before === 2 ? "Sept victoires sur sept : tu montes de deux rangs" : "Sept victoires sur sept : promotion";
+      cls = "up";
+    } else if (kachi) {
+      c.rank++;
+      verdict = "Plus de victoires que de défaites : promotion";
+      cls = "up";
+    } else {
+      c.rank = Math.max(0, c.rank - 1);
+      verdict = before === 0 ? "Plus de défaites que de victoires : tu restes Jonokuchi" : "Plus de défaites que de victoires : rétrogradation";
+      cls = "down";
+    }
+    c.best = Math.max(c.best, c.rank);
+    c.bashoNo++;
+    c.basho = null;
+    newBasho(c);
+    persist();
+    const unlocked = SKINS.filter((s) => s.rank > bestBefore && s.rank <= c.best);
+    const rk = RANKS[c.rank];
+    showScreen({
+      kanji: rk.kanji,
+      title: rk.name,
+      lead: `Fin du basho : ${wins} victoire${wins > 1 ? "s" : ""} sur ${BASHO_DAYS}.`,
+      body: [
+        el("p", "verdict " + cls, verdict),
+        recordEl(results, -1),
+        unlocked.length ? el("p", "unlock", `Nouvelle${unlocked.length > 1 ? "s" : ""} ceinture${unlocked.length > 1 ? "s" : ""} au vestiaire : ${unlocked.map((s) => s.name).join(", ")}.`) : null,
+        list(mbtn("Basho suivant", `Basho ${c.bashoNo}`, true, careerHub), unlocked.length ? mbtn("Vestiaire", null, false, () => wardrobe(careerHub), "quiet") : null)
+      ]
+    });
+  }
+
+  // src/game/dojolessons.js
+  function put(p, x, y, face) {
+    p.x = p.px = x;
+    p.y = p.py = y;
+    p.face = face;
+    p.vx = p.vy = 0;
+    p.usedTachiai = true;
+  }
+  function playNow(S) {
+    S.phase = "play";
+    S.phaseT = 0;
+    S.roundT = 2;
+  }
+  var toward = (a, b, k = 1) => ({ ...NOCMD, mx: (b.x - a.x) * k, my: (b.y - a.y) * k });
+  var dist = (a, b) => Math.hypot(b.x - a.x, b.y - a.y);
+  var has = (ev, type, who) => ev.find((e) => e.type === type && (who == null || e.who === who));
+  var fmt = (t) => t.toFixed(2).replace(".", ",") + " s";
+  var bully = () => ({ ...NOCMD, mx: -1, feint: true });
+  var out = (ev, who) => ev.some((e) => e.type === "roundWin" && e.who === 1 - who);
+  var LESSONS = [
+    {
+      id: "dash",
+      title: "Le dash",
+      kanji: "突",
+      reps: 1,
+      goal: (k) => `Approche-toi avec ${k("move")}, puis ${k("dash")} pour charger. Sors l'apprenti du cercle.`,
+      learned: "Le dash est ta poussée la plus forte. Il se recharge en 1,4 s : la jauge « Dash » du bandeau le montre.",
+      setup(S) {
+        playNow(S);
+        put(S.p[0], C - 170, C, 0);
+        put(S.p[1], C + 110, C, PI);
+      },
+      dummy: () => NOCMD,
+      check(S, ev) {
+        if (out(ev, 1)) return { ok: true, msg: "Dehors !" };
+        if (out(ev, 0)) return { fail: true, msg: "C’est toi qui es sorti. Vise l’apprenti, puis dash." };
+        return null;
+      }
+    },
+    {
+      id: "tachiai",
+      title: "Le départ",
+      kanji: "立合",
+      reps: 2,
+      shikiri: true,
+      goal: (k) => `Attends « Hakkeyoi ! », puis ${k("dash")} tout de suite. En moins de 0,35 s, ta charge pousse 30 % plus fort.`,
+      learned: "Un bon tachiai fait souvent la manche. Mais un dash avant le signal est un faux départ (matta) : tu restes figé un instant.",
+      setup() {
+      },
+      dummy: () => NOCMD,
+      check(S, ev) {
+        if (has(ev, "matta", 0)) return { fail: true, msg: "Trop tôt : faux départ (matta). Attends le signal." };
+        const r = has(ev, "reaction", 0);
+        if (r && r.perfect) return { ok: true, msg: `Tachiai parfait : ${fmt(r.t)}` };
+        if (r) return { fail: true, msg: `Trop tard : ${fmt(r.t)}. Il faut moins de ${fmt(TACHIAI_WINDOW)}.` };
+        if (S.phase === "play" && S.roundT > 1.6 && !S.p[0].usedTachiai) return { fail: true, msg: "Dash dès que « Hakkeyoi ! » s’affiche." };
+        return null;
+      }
+    },
+    {
+      id: "garde",
+      title: "La garde",
+      kanji: "守",
+      reps: 3,
+      counter: true,
+      goal: (k) => `L'apprenti va charger. Reste face à lui et maintiens ${k("guard")} juste avant le choc. Bloque 3 dashs.`,
+      learned: "De face, la garde te rend très lourd. Mais elle ne protège pas de dos, et la jauge « Garde » se vide : ne la tiens pas en permanence.",
+      setup(S, D) {
+        playNow(S);
+        put(S.p[0], C - 60, C, 0);
+        put(S.p[1], C + 200, C, PI);
+        D.next = S.tick + 100;
+        D.charge = 0;
+      },
+      dummy(S, D) {
+        const me = S.p[1], foe = S.p[0], d = dist(me, foe);
+        if (S.tick < D.charge) return toward(me, foe);
+        if (S.tick < D.next) return d < 260 ? toward(foe, me) : { ...NOCMD };
+        const c = toward(me, foe);
+        const aimed = Math.cos(Math.atan2(foe.y - me.y, foe.x - me.x) - me.face) > 0.97;
+        if (d <= 190 && aimed && me.cd <= 0) {
+          c.dash = true;
+          D.charge = S.tick + 40;
+          D.next = S.tick + 190;
+        }
+        return c;
+      },
+      check(S, ev, D) {
+        if (has(ev, "block", 0)) {
+          D.count = (D.count || 0) + 1;
+          return D.count >= 3 ? { ok: true, msg: "Trois dashs bloqués !" } : { info: `Bloqué ! ${D.count} sur 3` };
+        }
+        if (out(ev, 0)) return { fail: true, msg: "Tu es sorti. Garde levée, face à lui, juste avant le choc." };
+        if (out(ev, 1)) return { reset: true, msg: "Il est sorti tout seul : on le remet en place." };
+        const hit = ev.find((e) => e.type === "hit" && e.dash[1] && e.force > 250);
+        if (hit && !S.p[0].guard) return { info: "Touché ! Garde levée avant qu’il arrive." };
+        return null;
+      }
+    },
+    {
+      id: "feinte",
+      title: "La feinte",
+      kanji: "偽",
+      reps: 1,
+      goal: (k) => `L'apprenti lève sa garde dès qu'il te voit charger. ${k("feint")} pour une feinte : il garde dans le vide. Quand sa garde retombe, ${k("dash")} et sors-le.`,
+      learned: "La feinte a l’allure d’un dash sans en avoir la force. Elle fait garder l’adversaire pour rien, et ne coûte pas ton dash.",
+      setup(S, D) {
+        playNow(S);
+        put(S.p[0], C - 160, C, 0);
+        put(S.p[1], C + 90, C, PI);
+        D.guardUntil = 0;
+        D.calmUntil = 0;
+      },
+      dummy(S, D) {
+        const me = S.p[1], foe = S.p[0], d = dist(me, foe);
+        const charging = foe.dashT > 0 || foe.fakeT > 0;
+        if (charging && d < 420 && S.tick >= D.calmUntil && S.tick >= D.guardUntil) {
+          D.guardUntil = S.tick + 72;
+          D.calmUntil = D.guardUntil + 120;
+        }
+        const home = { x: C + 90, y: C }, guard = S.tick < D.guardUntil;
+        const c = !guard && dist(me, home) > 20 ? toward(me, home) : { ...NOCMD };
+        return { ...c, guard };
+      },
+      check(S, ev, D) {
+        if (has(ev, "feint", 0)) {
+          D.feinted = true;
+          return { info: "Il garde dans le vide… dash quand sa garde retombe !" };
+        }
+        if (has(ev, "block", 1)) return { info: "Bloqué : il a vu venir ton dash. Feinte d’abord." };
+        if (out(ev, 1)) return D.feinted ? { ok: true, msg: "Feinte, puis dash : dehors !" } : { fail: true, msg: "Sorti, mais sans feinte. Recommence avec une feinte." };
+        if (out(ev, 0)) return { fail: true, msg: "C’est toi qui es sorti." };
+        return null;
+      }
+    },
+    {
+      id: "tawara",
+      title: "Tenir au bord",
+      kanji: "俵",
+      reps: 2,
+      goal: (k) => `Tu es sur les ballots de paille et l'apprenti te pousse dehors. Pousse tout de suite vers le centre avec ${k("move")} : tes talons se plantent dans la paille.`,
+      learned: "Au bord, pousser vers le centre freine sa poussée. Mais ça vide ta jauge de garde en 1 s : ensuite, les talons glissent.",
+      setup(S, D) {
+        playNow(S);
+        put(S.p[0], C - R0 + 14, C, 0);
+        put(S.p[1], C - R0 + 204, C, PI);
+        D.held = 0;
+      },
+      dummy: bully,
+      check(S, ev, D) {
+        if (S.p[0].hold) D.held += 1 / 120;
+        if (D.held >= 0.3) return { ok: true, msg: "Tenu !" };
+        if (out(ev, 0)) return { fail: true, msg: "Sorti. Pousse vers le centre dès qu’il arrive sur toi." };
+        if (out(ev, 1)) return { reset: true, msg: "Pas besoin de le sortir : tiens juste au bord." };
+        return null;
+      }
+    },
+    {
+      id: "utchari",
+      title: "L’utchari",
+      kanji: "打棄",
+      reps: 1,
+      goal: (k) => `L'apprenti arrive sur toi. Quand « Utchari » s'affiche au-dessus de ton lutteur, ${k("dash")} : tu pivotes sur la paille et c'est lui qui sort.`,
+      learned: "L’utchari retourne une défaite au bord. La direction choisit seulement le sens du pivot. Impossible si l’adversaire pousse garde levée.",
+      setup(S) {
+        playNow(S);
+        put(S.p[0], C - R0 + 14, C, 0);
+        put(S.p[1], C - R0 + 204, C, PI);
+      },
+      dummy: bully,
+      check(S, ev) {
+        if (has(ev, "utchari", 0)) return { ok: true, msg: "Utchari !" };
+        if (out(ev, 0)) return { fail: true, msg: "Sorti. Dash dès que « Utchari » s’affiche au-dessus de toi." };
+        if (out(ev, 1)) return { reset: true, msg: "Il est sorti, mais sans utchari. Encore une fois !" };
+        return null;
+      }
+    },
+    {
+      id: "hanches",
+      title: "Hanches basses",
+      kanji: "腰",
+      reps: 1,
+      goal: (k) => `Pousse l'apprenti vers le bord avec ${k("move")}. Il va tenter l'utchari : pendant qu'il te soulève (« Hanches basses »), appuie sur ${k("guard")}.`,
+      learned: "Contre l’utchari, baisser les hanches au bon moment le fait échouer : celui qui l’a tenté reste déséquilibré au bord.",
+      setup(S, D) {
+        playNow(S);
+        put(S.p[1], C + R0 - 6, C, PI);
+        put(S.p[0], C + R0 - 150, C, 0);
+        D.seen = -1;
+      },
+      dummy(S, D) {
+        const me = S.p[1], foe = S.p[0];
+        const c = dist(me, foe) < 130 ? { ...NOCMD, mx: C - me.x, my: C - me.y } : { ...NOCMD };
+        if (canUtchari(S, 1)) {
+          if (D.seen < 0) D.seen = S.tick;
+          if (S.tick - D.seen >= 18) {
+            c.dash = true;
+            c.mx = 0;
+            c.my = 1;
+          }
+        } else D.seen = -1;
+        return c;
+      },
+      check(S, ev) {
+        if (has(ev, "utchariCounter", 0)) return { ok: true, msg: "Contré !" };
+        if (has(ev, "utchari", 1)) return { fail: true, msg: "Projeté ! Pendant qu’il te soulève, appuie sur la garde." };
+        if (out(ev, 0)) return { fail: true, msg: "C’est toi qui es sorti." };
+        if (out(ev, 1)) return { reset: true, msg: "Sorti avant son utchari. Pousse-le en marchant, sans dash." };
+        return null;
+      }
+    }
+  ];
+
+  // src/game/dojo.js
+  var WAIT_OK = 0.9;
+  var WAIT_FAIL = 1;
+  var doneIds = () => save.dojo && Array.isArray(save.dojo.done) ? save.dojo.done : [];
+  var isDone = (L) => doneIds().includes(L.id);
+  function keyLabel(action) {
+    const touchOnly = matchMedia("(hover: none) and (pointer: coarse)").matches && !G.padFamily;
+    if (action === "move") {
+      if (G.padFamily) return "le stick";
+      if (touchOnly) return "ton doigt";
+      const b = BIND[0];
+      return [b.up[0], b.left[0], b.down[0], b.right[0]].map(keyName).join(" ");
+    }
+    if (G.padFamily) return (PAD_GLYPHS[G.padFamily][PAD[action][0]] || ["?"])[0];
+    if (touchOnly) return { dash: "le bouton Dash", guard: "le bouton Garde", feint: "le bouton Feinte" }[action];
+    return keyName(BIND[0][action][0]);
+  }
+  function dojoMenu() {
+    if (G.dojo) G.dojo = null;
+    G.screen = "menu";
+    G.mode = null;
+    G.paused = false;
+    setNames("Rouge", "Est", "Bleu", "Ouest");
+    updateScore();
+    const next = LESSONS.findIndex((L) => !isDone(L));
+    const btns = LESSONS.map((L, i) => mbtn(`${i + 1}. ${L.title}`, isDone(L) ? "Réussie" : i === next ? "À faire" : null, i === next, () => startLesson(i)));
+    showScreen({
+      kanji: "道場",
+      title: "Dojo",
+      lead: "Sept leçons courtes contre un apprenti. Chacune t’apprend une technique qui sert en combat.",
+      body: [list(...btns, mbtn("Retour", null, false, menu, "quiet"))],
+      focus: next >= 0 ? ".mbtn.primary" : void 0,
+      back: menu
+    });
+  }
+  function startLesson(i) {
+    const L = LESSONS[i];
+    G.mode = "dojo";
+    G.opp = null;
+    G.names = ["Toi", "Apprenti"];
+    G.skins[0] = save.skin;
+    setNames("Toi", "Dojo", "Apprenti", `Leçon ${i + 1}`);
+    resetMatchFx();
+    G.dojo = { i, L, count: 0, mem: {}, wait: 0, then: null, msg: "", frozen: false, ui: "" };
+    setupAttempt();
+    hideOverlay();
+    updateScore();
+  }
+  function setupAttempt() {
+    const D = G.dojo;
+    const S = newMatch({ seed: Math.random() * 2 ** 31 | 0, win: 99, ai: [null, null] });
+    D.mem = { count: D.mem.count };
+    D.L.setup(S, D.mem);
+    G.S = S;
+    G.rec = [];
+    G.labels = [];
+    G.particles = [];
+    G.flash = null;
+    G.acc = 0;
+    handleEvents(S);
+  }
+  function dojoRestart() {
+    if (!G.dojo) return;
+    startLesson(G.dojo.i);
+  }
+  function dojoCmd(S) {
+    const D = G.dojo;
+    if (!D.L.shikiri) S.roundT = Math.min(S.roundT, 2);
+    return D.L.dummy(S, D.mem);
+  }
+  function dojoAfter(S, ev) {
+    const D = G.dojo;
+    if (!D || D.frozen) return;
+    if (D.wait > 0) {
+      D.wait -= 1 / 120;
+      if (D.wait <= 0) D.then();
+      return;
+    }
+    const r = D.L.check(S, ev, D.mem);
+    if (!r) return;
+    if (r.info) {
+      D.msg = r.info;
+      return;
+    }
+    D.msg = r.msg;
+    if (r.ok) {
+      D.count = D.L.counter ? D.L.reps : D.count + 1;
+      G.flash = { text: D.count >= D.L.reps ? "Réussi !" : r.msg, color: "#ffd166", t: 1.2 };
+      Sound.taiko(0, 110, 0.6);
+      G.cheer = Math.max(G.cheer, 1);
+      D.wait = WAIT_OK;
+      D.then = D.count >= D.L.reps ? lessonDone : setupAttempt;
+    } else {
+      G.flash = { text: r.fail ? "Raté" : "On recommence", color: "#efe3c8", t: 0.9 };
+      D.wait = r.fail ? WAIT_FAIL : 0.6;
+      D.then = setupAttempt;
+    }
+  }
+  function lessonDone() {
+    const D = G.dojo, L = D.L, i = D.i;
+    D.frozen = true;
+    if (!isDone(L)) {
+      save.dojo = { done: [...doneIds(), L.id] };
+      persist();
+    }
+    Sound.roll();
+    const nextI = i + 1 < LESSONS.length ? i + 1 : -1;
+    const all = LESSONS.every(isDone);
+    showScreen({
+      kanji: L.kanji,
+      seal: "shu",
+      title: "Réussi !",
+      lead: L.learned,
+      body: [list(
+        nextI >= 0 ? mbtn(`Leçon suivante : ${LESSONS[nextI].title}`, `${nextI + 1} sur ${LESSONS.length}`, true, () => startLesson(nextI)) : mbtn("Carrière", all ? "Toutes les leçons sont réussies : place au banzuke" : "Du Jonokuchi au Yokozuna", true, careerHub),
+        mbtn("Refaire cette leçon", null, false, () => startLesson(i)),
+        mbtn("Toutes les leçons", null, false, dojoMenu, "quiet")
+      )],
+      back: dojoMenu
+    });
+  }
+  var panel = $("dojoPanel");
+  var pStep = $("djStep");
+  var pReps = $("djReps");
+  var pGoal = $("djGoal");
+  var pMsg = $("djMsg");
+  function dojoHud() {
+    const D = G.dojo;
+    const show = !!D && G.mode === "dojo" && G.screen === "match" && $("ov").hidden;
+    if (panel.hidden !== !show) panel.hidden = !show;
+    if (!show) return;
+    const goal = D.L.goal(keyLabel);
+    const done = D.L.counter ? Math.min(D.L.reps, D.mem.count || 0) : D.count;
+    const key = [D.i, done, goal, D.msg].join("|");
+    if (key === D.ui) return;
+    D.ui = key;
+    pStep.textContent = `Leçon ${D.i + 1} sur ${LESSONS.length} · ${D.L.title}`;
+    pReps.replaceChildren(...Array.from({ length: D.L.reps }, (_, k) => el("i", k < done ? "on" : "")));
+    pReps.setAttribute("aria-label", `${done} réussite${done > 1 ? "s" : ""} sur ${D.L.reps}`);
+    pGoal.textContent = goal;
+    pMsg.textContent = D.msg;
+  }
 
   // src/ui/controls.js
   var ACTION_LABELS = {
@@ -3295,6 +3948,9 @@ body.replaying .hud, body.replaying .touch { visibility: hidden; }
     G.mode = null;
     G.paused = false;
     G.zabuton.length = 0;
+    G.watch = null;
+    G.dojo = null;
+    G.recorder = null;
     setNames("Rouge", "Est", "Bleu", "Ouest");
     updateScore();
     setPauseLabel();
@@ -3305,6 +3961,7 @@ body.replaying .hud, body.replaying .touch { visibility: hidden; }
       lead: "Pousse ton adversaire hors du cercle avant qu'il ne te sorte. Le cercle rétrécit à chaque instant.",
       body: [list(
         mbtn("Carrière", c ? `${RANKS[c.rank].name}, basho ${c.bashoNo}` : "Du Jonokuchi au Yokozuna", true, careerHub),
+        mbtn("Dojo", dojoSub(), false, () => dojoMenu()),
         mbtn("En ligne", "Partie rapide ou duel privé avec un code", false, onlineMenu),
         mbtn("2 joueurs", "Même clavier ou deux manettes", false, () => startMatch({ mode: "versus" })),
         mbtn("Contre l'IA", "Cinq adversaires, cinq styles", false, aiSelect),
@@ -3312,6 +3969,10 @@ body.replaying .hud, body.replaying .touch { visibility: hidden; }
         mbtn("Commandes", "Clavier, manette, tactile", false, () => controlsCard(menu))
       )]
     });
+  }
+  function dojoSub() {
+    const done = (save.dojo && save.dojo.done || []).length;
+    return done === 0 ? "Apprendre les techniques, pas à pas" : done >= 7 ? "Toutes les leçons réussies" : `${done} leçon${done > 1 ? "s" : ""} sur 7 réussie${done > 1 ? "s" : ""}`;
   }
   function aiSelect() {
     const btns = STYLE_ORDER.map((id, k) => {
@@ -3331,151 +3992,401 @@ body.replaying .hud, body.replaying .touch { visibility: hidden; }
     });
   }
 
-  // src/ui/career.js
-  function wardrobe(backFn) {
-    const best = save.career ? save.career.best : 0;
-    const grid = el("div", "swatches");
-    SKINS.filter((s) => !s.hidden).forEach((s) => {
-      const b = el("button", "swatch" + (save.skin === s.id ? " sel" : ""));
-      b.type = "button";
-      const cnv = document.createElement("canvas");
-      cnv.width = 128;
-      cnv.height = 128;
-      const draw = () => {
-        const sh = skinSheet(s.id);
-        if (!sheetReady(sh)) return setTimeout(draw, 100);
-        const g = cnv.getContext("2d");
-        g.clearRect(0, 0, 128, 128);
-        g.translate(64, 64);
-        g.rotate(-PI / 2);
-        g.drawImage(sh, FRAME * 0.2, FRAME * 0.2, FRAME * 0.6, FRAME * 0.6, -64, -64, 128, 128);
-      };
-      draw();
-      const unlocked = s.rank <= best;
-      b.append(cnv, el("span", null, s.name), el("small", null, !unlocked ? `Rang ${RANKS[s.rank].name}` : save.skin === s.id ? "Portée" : "Disponible"));
-      b.disabled = !unlocked;
-      b.addEventListener("click", () => {
-        save.skin = s.id;
-        G.skins[0] = s.id;
-        persist();
-        Sound.click();
-        wardrobe(backFn);
-      });
-      grid.append(b);
-    });
-    showScreen({
-      kanji: "締込",
-      title: "Vestiaire",
-      lead: "Choisis ta ceinture. Monte dans le classement en mode Carrière pour en débloquer de nouvelles.",
-      body: [grid, list(mbtn("Retour", null, false, backFn, "quiet"))],
-      focus: ".swatch.sel",
-      back: backFn
-    });
+  // src/game/watch.js
+  var PUBLIC_URL = "https://ikono85.github.io/Game/";
+  var SPEEDS = [1, 2, 0.5];
+  function replayUrl(text) {
+    const base = /^https?:$/.test(location.protocol) ? location.origin + location.pathname : PUBLIC_URL;
+    return base + "#replay=" + text;
   }
-  function careerHub() {
-    const c = career(), b = c.basho;
-    G.screen = "menu";
-    G.mode = null;
-    setNames("Rouge", "Est", "Bleu", "Ouest");
-    updateScore();
-    const rk = RANKS[c.rank];
-    const ranks = el("ol", "ranks");
-    ranks.setAttribute("aria-label", "Rangs du banzuke");
-    RANKS.forEach((r, k) => ranks.append(el("li", k === c.rank ? "now" : k <= c.best ? "done" : "", r.name)));
-    const o = b.opps[b.day];
-    const vs = el("div", "versus");
-    vs.append(
-      el("p", "sub-h", `Jour ${b.day + 1}, ton adversaire (${RANKS[o.rank].name})`),
-      el("div", "who2", o.name),
-      el("div", "sty", `${STYLES[o.style].label[0].toUpperCase() + STYLES[o.style].label.slice(1)}. ${STYLES[o.style].desc}`)
-    );
-    const row = el("div", "row-btns");
-    row.append(mbtn("Vestiaire", null, false, () => wardrobe(careerHub), "quiet"), mbtn("Menu", null, false, menu, "quiet"));
-    let armed = false;
-    const reset = mbtn("Recommencer la carrière", null, false, () => {
-      if (!armed) {
-        armed = true;
-        reset.firstChild.textContent = "Tout effacer ? Clique encore pour confirmer";
-        reset.classList.add("danger");
+  async function replayLink(R) {
+    if (!R.text) R.text = await encodeReplay(R);
+    return replayUrl(R.text);
+  }
+  function shareButton(R) {
+    if (!replayReady(R) || typeof CompressionStream === "undefined") return null;
+    R.meta.kimarite = G.kimarite;
+    const box = el("div", "share");
+    const b = mbtn("Partager le ralenti", "Copie un lien qui rejoue tout le combat", false, async () => {
+      const sub = b.querySelector("small");
+      let url;
+      try {
+        url = await replayLink(R);
+      } catch {
+        sub.textContent = "Impossible de créer le lien";
         return;
       }
-      save.career = null;
-      save.skin = "rouge";
-      G.skins[0] = "rouge";
-      persist();
-      careerHub();
-    }, "quiet");
+      const manual = () => {
+        sub.textContent = "Copie le lien ci-dessous";
+        if (box.querySelector("input")) return;
+        const inp = el("input", "net-input share-link");
+        Object.assign(inp, { type: "text", readOnly: true, value: url, spellcheck: false });
+        inp.setAttribute("aria-label", "Lien du ralenti");
+        inp.addEventListener("focus", () => inp.select());
+        box.append(inp);
+        inp.focus();
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).then(() => {
+          sub.textContent = `Lien copié ! (${Math.round(url.length / 100) / 10} k caractères)`;
+        }, manual);
+      } else manual();
+    });
+    box.append(b);
+    return box;
+  }
+  function startWatch(R) {
+    G.mode = "watch";
+    G.opp = null;
+    G.names = R.meta.names.slice();
+    G.skins[0] = R.meta.skins[0];
+    setNames(G.names[0], "Est", G.names[1], "Ouest");
+    const P = newPlayback(R);
+    G.S = P.S;
+    resetMatchFx();
+    G.watch = Object.assign(P, { speed: 1, paused: false });
+    G.lastReplay = R;
+    hideOverlay();
+    updateScore();
+    syncWatchBar();
+    handleEvents(G.S);
+  }
+  async function openReplayLink(text) {
+    let R;
+    try {
+      R = await decodeReplay(text);
+    } catch (e) {
+      const version = e && e.message === "version";
+      showScreen({
+        kanji: "映",
+        title: version ? "Autre version du jeu" : "Ralenti illisible",
+        lead: version ? "Ce ralenti a été enregistré avec une autre version de Dohyō Duel : il ne rejouerait pas le même combat." : typeof DecompressionStream === "undefined" ? "Ce navigateur est trop ancien pour lire les ralentis partagés." : "Le lien semble coupé ou abîmé. Demande à ton ami de le copier à nouveau.",
+        body: [list(mbtn("Menu", null, true, menu))],
+        back: menu
+      });
+      return;
+    }
+    const [a, b] = R.meta.names;
     showScreen({
-      kanji: rk.kanji,
-      title: rk.name,
-      lead: `Basho ${c.bashoNo}. Gagne au moins ${Math.floor(BASHO_DAYS / 2) + 1} combats sur ${BASHO_DAYS} pour monter au rang suivant.`,
-      body: [
-        ranks,
-        recordEl(b.results, b.day),
-        vs,
-        list(mbtn("Combattre", "Une manche, comme au vrai sumo", true, () => startMatch({ mode: "career", opp: o })), row, reset)
-      ],
+      kanji: "映",
+      title: "Ralenti partagé",
+      lead: `${a} contre ${b}. Tout le combat est rejoué, du premier tachiai au dernier coup.`,
+      body: [list(mbtn("Regarder", "Espace : pause · → : manche suivante · V : vitesse", true, () => startWatch(R)), mbtn("Menu", null, false, menu, "quiet"))],
       back: menu
     });
   }
-  function careerBoutResult(won) {
-    const c = career(), b = c.basho;
-    const o = b.opps[b.day];
-    b.results.push(won ? 1 : 0);
-    b.day++;
-    persist();
-    const wins = b.results.filter((x) => x).length, losses = b.results.length - wins;
-    const next = b.day >= BASHO_DAYS ? mbtn("Voir le classement", "Fin du basho", true, bashoEnd) : mbtn("Jour suivant", `${wins} victoire${wins > 1 ? "s" : ""}, ${losses} défaite${losses > 1 ? "s" : ""}`, true, careerHub);
+  function watchPause() {
+    const W2 = G.watch;
+    if (!W2) return;
+    W2.paused = !W2.paused;
+    G.last = performance.now();
+    syncWatchBar();
+  }
+  function watchSpeed() {
+    const W2 = G.watch;
+    if (!W2) return;
+    W2.speed = SPEEDS[(SPEEDS.indexOf(W2.speed) + 1) % SPEEDS.length];
+    syncWatchBar();
+  }
+  function watchNext() {
+    const W2 = G.watch;
+    if (!W2 || W2.S.phase === "matchEnd") return;
+    const rn0 = W2.S.rn;
+    let end = false;
+    for (let n = 0; n < 120 * 900 && W2.S.rn === rn0 && W2.S.phase !== "matchEnd"; n++) {
+      playbackStep(W2);
+      if (W2.S.events.some((e) => e.type === "matchWin")) end = true;
+      W2.S.events = W2.S.events.filter((e) => e.type === "matchWin");
+    }
+    G.rec = [];
+    G.labels = [];
+    G.particles = [];
+    G.flash = null;
+    G.acc = 0;
+    updateScore();
+    if (end || W2.S.phase === "matchEnd") handleEvents(W2.S);
+    else W2.S.events.length = 0;
+  }
+  function watchEnd(w) {
+    const R = G.lastReplay, S = G.S;
+    const fin = el("div", "final");
+    fin.setAttribute("aria-label", `Score ${S.score[0]} à ${S.score[1]}`);
+    fin.append(el("span", "e", S.score[0]), el("span", null, "–"), el("span", "w", S.score[1]));
     showScreen({
-      kanji: won ? "勝" : "負",
-      seal: won ? "shu" : "ink",
-      title: won ? "Victoire" : "Défaite",
-      lead: `Jour ${b.day} contre ${o.name}` + (G.kimarite === "utchari" && won ? ", gagné par utchari." : "."),
-      body: [recordEl(b.results, -1), statsTable(), list(next)]
+      kanji: "映",
+      seal: w === 0 ? "shu" : "blue",
+      title: `${G.names[w]} gagne`,
+      lead: "Fin du ralenti" + (R.meta.kimarite === "utchari" ? ", gagné par utchari." : "."),
+      body: [fin, statsTable(), list(
+        mbtn("Revoir", "Depuis le début", true, () => startWatch(R)),
+        shareButton(R),
+        mbtn("Jouer", "Retour au menu", false, menu, "quiet")
+      )],
+      back: menu
     });
   }
-  function bashoEnd() {
-    const c = career(), b = c.basho;
-    const wins = b.results.filter((x) => x).length, results = b.results.slice();
-    const before = c.rank, bestBefore = c.best;
-    let verdict, cls;
-    if (c.rank === 8 && wins >= 6) {
-      c.rank = 9;
-      verdict = "Promu Yokozuna";
-      cls = "up";
-    } else if (wins === BASHO_DAYS) {
-      c.rank = Math.min(8, Math.max(c.rank, c.rank + 2));
-      c.yusho++;
-      verdict = "Sept victoires sur sept : tu montes de deux rangs";
-      cls = "up";
-    } else if (wins * 2 > BASHO_DAYS) {
-      c.rank = c.rank === 9 ? 9 : Math.min(8, c.rank + 1);
-      verdict = "Plus de victoires que de défaites : promotion";
-      cls = "up";
-    } else {
-      c.rank = c.rank === 9 ? 9 : Math.max(0, c.rank - 1);
-      verdict = c.rank === 9 ? "Plus de défaites que de victoires, mais un Yokozuna ne descend pas" : "Plus de défaites que de victoires : rétrogradation";
-      cls = "down";
-    }
-    if (c.rank === before && cls === "up") verdict += ", tu es déjà au sommet";
-    c.best = Math.max(c.best, c.rank);
-    c.bashoNo++;
-    c.basho = null;
-    newBasho(c);
-    persist();
-    const unlocked = SKINS.filter((s) => s.rank > bestBefore && s.rank <= c.best);
-    const rk = RANKS[c.rank];
-    showScreen({
-      kanji: rk.kanji,
-      title: rk.name,
-      lead: `Fin du basho : ${wins} victoire${wins > 1 ? "s" : ""} sur ${BASHO_DAYS}.`,
-      body: [
-        el("p", "verdict " + cls, verdict),
-        recordEl(results, -1),
-        unlocked.length ? el("p", "unlock", `Nouvelle${unlocked.length > 1 ? "s" : ""} ceinture${unlocked.length > 1 ? "s" : ""} au vestiaire : ${unlocked.map((s) => s.name).join(", ")}.`) : null,
-        list(mbtn("Basho suivant", `Basho ${c.bashoNo}`, true, careerHub), unlocked.length ? mbtn("Vestiaire", null, false, () => wardrobe(careerHub), "quiet") : null)
-      ]
+  var bar = $("watchBar");
+  var barPause = $("wPause");
+  var barSpeed = $("wSpeed");
+  function syncWatchBar() {
+    const W2 = G.watch;
+    if (!W2) return;
+    barPause.firstChild.textContent = W2.paused ? "Lecture" : "Pause";
+    barSpeed.firstChild.textContent = `Vitesse ×${String(W2.speed).replace(".", ",")}`;
+  }
+  function watchHud() {
+    const show = !!G.watch && G.mode === "watch" && G.screen === "match" && !G.replay && G.S && G.S.phase !== "matchEnd" && $("ov").hidden;
+    if (bar.hidden !== !show) bar.hidden = !show;
+  }
+  barPause.addEventListener("click", () => {
+    Sound.init();
+    watchPause();
+  });
+  barSpeed.addEventListener("click", () => {
+    Sound.init();
+    watchSpeed();
+  });
+  $("wNext").addEventListener("click", () => {
+    Sound.init();
+    watchNext();
+  });
+  $("wQuit").addEventListener("click", () => {
+    Sound.init();
+    menu();
+  });
+
+  // src/ui/hud.js
+  var hudEls = { d1: $("d1"), d2: $("d2"), g1: $("g1"), g2: $("g2"), status: $("status"), n1: $("n1"), n2: $("n2") };
+  var rankEls = document.querySelectorAll(".who .rank");
+  function setNames(n1, r1, n2, r2) {
+    hudEls.n1.textContent = n1;
+    hudEls.n2.textContent = n2;
+    rankEls[0].textContent = r1;
+    rankEls[1].textContent = r2;
+  }
+  function updateScore() {
+    const S = G.screen === "match" ? G.S : null;
+    const win = S ? S.win : 3, score = S ? S.score : [0, 0];
+    [["st1", 0], ["st2", 1]].forEach(([id, i]) => {
+      $(id).replaceChildren(...Array.from({ length: win }, (_, k) => {
+        const d = document.createElement("span");
+        d.className = "star" + (k < score[i] ? " on" : "");
+        return d;
+      }));
     });
+    $("roundNo").textContent = S ? S.round : 1;
+  }
+  function hud() {
+    const S = G.screen === "match" ? G.S : null;
+    [[0, "d1", "g1"], [1, "d2", "g2"]].forEach(([i, d, g]) => {
+      const p = S ? S.p[i] : null;
+      const cd = p ? p.cd : 0, st2 = p ? p.stamina : GUARD_MAX, br = p ? p.guardCd > 0 : false;
+      hudEls[d].style.transform = `scaleX(${1 - cd / DASH_CD})`;
+      hudEls[d].classList.toggle("ready", cd <= 0);
+      hudEls[g].style.transform = `scaleX(${st2 / GUARD_MAX})`;
+      hudEls[g].classList.toggle("broken", br);
+    });
+    let st = "";
+    if (S) {
+      if (G.paused || G.watch && G.watch.paused) st = "En pause";
+      else if (G.dojo) st = "Dojo";
+      else if (G.watch && S.phase === "play") st = `Ralenti partagé${G.watch.speed !== 1 ? " · ×" + String(G.watch.speed).replace(".", ",") : ""}`;
+      else if (S.phase === "shikiri") st = "Attends le signal…";
+      else if (S.phase === "play") st = S.roundT < SHRINK_DELAY ? `Le cercle rétrécit dans ${Math.ceil(SHRINK_DELAY - S.roundT)}` : S.ring > RMIN ? "Le cercle rétrécit" : "Cercle au minimum";
+    }
+    if (hudEls.status.textContent !== st) hudEls.status.textContent = st;
+    netHud();
+    watchHud();
+    dojoHud();
+    document.body.classList.toggle("in-dojo", !!G.dojo && G.screen === "match");
+  }
+
+  // src/render/effects.js
+  function burst(x, y, n, color) {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * TAU, s = 80 + Math.random() * 260;
+      G.particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.5 + Math.random() * 0.4, color });
+    }
+  }
+  function setFlash(text, color = "#efe3c8", t = 1) {
+    G.flash = { text, color, t };
+  }
+  var fmtSec = (t) => `${t.toFixed(2).replace(".", ",")} s`;
+  var VFX = /* @__PURE__ */ new Set(["dash", "feint", "block", "hit", "roundWin", "holdStart", "slip", "utchariStart", "utchari", "utchariCounter"]);
+  function playVfx(e) {
+    switch (e.type) {
+      case "dash":
+        burst(e.x, e.y, 8, "#e8d2a4");
+        Sound.whoosh(0.28);
+        break;
+      case "feint":
+        burst(e.x, e.y, 8, "#e8d2a4");
+        Sound.whoosh(0.12);
+        break;
+      case "block":
+        burst(e.x, e.y, 14, "#fff3c4");
+        Sound.block();
+        break;
+      case "hit":
+        if (e.force > 250) {
+          G.shake = Math.min(18, e.force / 45);
+          burst(e.x, e.y, Math.min(18, e.force / 40 | 0), "#f3e6c9");
+          Sound.hit(e.force);
+        }
+        if (e.force > 650) G.cheer = Math.max(G.cheer, 0.7);
+        break;
+      case "roundWin":
+        G.cheer = 2.4;
+        G.shake = 20;
+        burst(e.x, e.y, 30, "#e8d2a4");
+        Sound.thud();
+        break;
+      case "holdStart":
+        burst(e.x, e.y, 10, "#c9a46b");
+        Sound.creak();
+        break;
+      case "slip":
+        burst(e.x, e.y, 16, "#b08850");
+        Sound.slip();
+        break;
+      case "utchariStart":
+        Sound.taiko(0, 60, 0.7);
+        Sound.whoosh(0.35);
+        G.cheer = Math.max(G.cheer, 1);
+        break;
+      case "utchariCounter":
+        G.shake = 10;
+        burst(e.x, e.y, 18, "#fff3c4");
+        Sound.block();
+        Sound.taiko(0, 70, 0.6);
+        G.cheer = Math.max(G.cheer, 1.5);
+        break;
+      case "utchari":
+        G.shake = 16;
+        burst(e.x, e.y, 26, "#f3e6c9");
+        Sound.hit(900);
+        Sound.taiko(0.05, 95, 0.8);
+        G.cheer = 3;
+        break;
+    }
+  }
+  function onReaction(e) {
+    const st = G.stats[e.who];
+    st.best = st.best == null ? e.t : Math.min(st.best, e.t);
+    let record = false;
+    if (isLocalHuman(G.S, e.who)) {
+      if (save.bestReact != null && e.t < save.bestReact) record = true;
+      if (save.bestReact == null || e.t < save.bestReact) {
+        save.bestReact = e.t;
+        persist();
+      }
+    }
+    G.labels = G.labels.filter((l) => l.who !== e.who);
+    G.labels.push({
+      who: e.who,
+      text: fmtSec(e.t),
+      sub: record ? "Record !" : e.perfect ? "Tachiai parfait" : null,
+      hot: record || e.perfect,
+      t: 1.8
+    });
+  }
+  function handleEvents(S) {
+    const fx = [];
+    for (const e of S.events) {
+      const pc = e.who === 0 ? COLORS.red : COLORS.blue;
+      if (VFX.has(e.type)) {
+        playVfx(e);
+        fx.push(e);
+      }
+      switch (e.type) {
+        case "roundStart":
+          G.zabuton.length = 0;
+          G.rec.length = 0;
+          G.labels = [];
+          Sound.taiko(0, 70, 0.5);
+          Sound.taiko(0.18, 70, 0.35);
+          break;
+        case "hakkeyoi":
+          setFlash("Hakkeyoi !", "#efe3c8", 0.7);
+          Sound.hyoshigi();
+          Sound.taiko(0.02, 90, 0.7);
+          break;
+        case "matta":
+          setFlash(`Matta ! ${G.names[e.who]}`, pc, 1);
+          Sound.buzz();
+          G.stats[e.who].matta++;
+          break;
+        case "tachiai":
+          Sound.taiko(0, 110, 0.6);
+          G.cheer = Math.max(G.cheer, 0.6);
+          break;
+        case "reaction":
+          onReaction(e);
+          break;
+        case "dash":
+          G.stats[e.who].dash++;
+          G.dashOpen[e.who] = S.tick;
+          break;
+        case "feint":
+          G.stats[e.who].feint++;
+          break;
+        case "block":
+          setFlash("Bloqué !", "#efe3c8", 0.6);
+          G.stats[e.who].block++;
+          break;
+        case "hit":
+          if (e.force > 200) for (let k = 0; k < 2; k++) {
+            if (G.dashOpen[k] !== false && S.tick - G.dashOpen[k] <= SIM_HZ / 2) {
+              G.stats[k].dashHit++;
+              G.dashOpen[k] = false;
+            }
+          }
+          break;
+        case "draw":
+          setFlash("Égalité, on recommence", "#efe3c8", 1.2);
+          break;
+        case "holdStart":
+          G.stats[e.who].hold++;
+          break;
+        case "utchari":
+          G.stats[e.who].utchari++;
+          setFlash("Utchari !", "#ffd166", 1.4);
+          break;
+        case "utchariCounter":
+          G.stats[e.who].counter++;
+          setFlash("Contré !", "#efe3c8", 1.1);
+          break;
+        case "roundWin":
+          G.kimarite = e.kimarite;
+          if (e.kimarite !== "utchari") setFlash(`${G.names[e.who]} marque`, pc, 1.1);
+          updateScore();
+          break;
+        case "matchWin":
+          if (G.mode !== "online") onMatchEnd(e.who);
+          break;
+      }
+    }
+    S.events.length = 0;
+    return fx;
+  }
+  function throwZabuton(n = 40) {
+    for (let i = 0; i < n; i++) {
+      const s = seats_default[Math.random() * seats_default.length | 0];
+      const a = Math.random() * TAU, r = Math.random() * 300;
+      G.zabuton.push({
+        x0: s[0],
+        y0: s[1],
+        x1: C + Math.cos(a) * r,
+        y1: C + Math.sin(a) * r,
+        t: -Math.random() * 1.2,
+        dur: 0.8 + Math.random() * 0.5,
+        rot: Math.random() * TAU,
+        spin: (Math.random() - 0.5) * 14,
+        hue: ["#6b3a7a", "#8c2f3c", "#3d5a80", "#7a5c2e"][Math.random() * 4 | 0]
+      });
+    }
+    G.cheer = 4;
+    if (Sound.ok()) for (let i = 0; i < 10; i++) Sound.noiseHit(Sound.ctx.currentTime + Math.random() * 1.6, { f: 400, vol: 0.12, dec: 0.12 });
   }
 
   // src/game/match.js
@@ -3499,12 +4410,23 @@ body.replaying .hud, body.replaying .touch { visibility: hidden; }
     }
     G.S = newMatch({ seed: Math.random() * 2 ** 31 | 0, win, ai });
     resetMatchFx();
+    const shareNames = [G.names[0] === "Toi" ? cleanName(save.netName) || "Rouge" : G.names[0], G.names[1]];
+    G.recorder = newRecorder(G.S, {
+      mode: opts.mode,
+      names: shareNames,
+      skins: [G.skins[0], "blue"],
+      win,
+      ai: [null, G.opp ? { style: G.opp.style, level: G.opp.level } : null]
+    });
     hideOverlay();
     updateScore();
     setPauseLabel();
     handleEvents(G.S);
   }
   function resetMatchFx() {
+    G.watch = null;
+    G.dojo = null;
+    G.recorder = null;
     G.screen = "match";
     G.paused = false;
     G.acc = 0;
@@ -3545,10 +4467,15 @@ body.replaying .hud, body.replaying .touch { visibility: hidden; }
     return t;
   }
   function onMatchEnd(w) {
+    if (G.recorder) G.lastReplay = G.recorder;
     startReplay(() => afterReplay(w));
   }
   function afterReplay(w) {
     const S = G.S;
+    if (G.mode === "watch") {
+      setTimeout(() => watchEnd(w), 300);
+      return;
+    }
     let upset;
     if (G.mode === "career") {
       const c = career();
@@ -3571,6 +4498,7 @@ body.replaying .hud, body.replaying .touch { visibility: hidden; }
       lead: (w === 0 ? "Victoire à l'est" : "Victoire à l'ouest") + (G.kimarite === "utchari" ? ", par utchari." : "."),
       body: [fin, statsTable(), list(
         mbtn("Revanche", G.mode === "versus" ? "Mêmes joueurs" : `Contre ${G.opp.name}`, true, () => startMatch({ mode: G.mode, opp: G.opp })),
+        shareButton(G.lastReplay),
         mbtn("Menu", null, false, menu, "quiet")
       )]
     }), delay);
@@ -3591,6 +4519,28 @@ body.replaying .hud, body.replaying .touch { visibility: hidden; }
     } else resume();
   }
   function pauseCard() {
+    if (G.mode === "watch" || G.mode === "dojo") {
+      const dojo = G.mode === "dojo";
+      showScreen({
+        kanji: "休憩",
+        title: "Pause",
+        body: [list(
+          mbtn("Reprendre", keyOrPad("Échap", 9), true, resume),
+          dojo ? mbtn("Recommencer la leçon", null, false, () => {
+            G.paused = false;
+            dojoRestart();
+          }) : null,
+          dojo ? mbtn("Toutes les leçons", null, false, () => {
+            G.paused = false;
+            dojoMenu();
+          }) : null,
+          mbtn("Commandes", null, false, () => controlsCard(pauseCard)),
+          mbtn(dojo ? "Quitter le dojo" : "Quitter le ralenti", "Retour au menu", false, menu, "quiet")
+        )],
+        back: resume
+      });
+      return;
+    }
     showScreen({
       kanji: "休憩",
       title: "Pause",
@@ -3656,9 +4606,9 @@ body.replaying .hud, body.replaying .touch { visibility: hidden; }
     setNames("Rouge", "Est", "Bleu", "Ouest");
     updateScore();
     const [nameRow, keep] = nameField();
-    const fmt = el("div", "seg");
-    fmt.setAttribute("role", "radiogroup");
-    fmt.setAttribute("aria-label", "Format du duel privé");
+    const fmt2 = el("div", "seg");
+    fmt2.setAttribute("role", "radiogroup");
+    fmt2.setAttribute("aria-label", "Format du duel privé");
     const cur = save.netWin || 3;
     [[1, "1 manche"], [2, "Premier à 2"], [3, "Premier à 3"]].forEach(([w, l]) => {
       const b = el("button", "seg-btn" + (cur === w ? " sel" : ""), l);
@@ -3670,15 +4620,15 @@ body.replaying .hud, body.replaying .touch { visibility: hidden; }
         persist();
         Sound.init();
         Sound.click();
-        fmt.querySelectorAll(".seg-btn").forEach((x) => {
+        fmt2.querySelectorAll(".seg-btn").forEach((x) => {
           x.classList.toggle("sel", x === b);
           x.setAttribute("aria-checked", String(x === b));
         });
       });
-      fmt.append(b);
+      fmt2.append(b);
     });
     const fmtRow = el("div", "net-field");
-    fmtRow.append(el("span", null, "Format du duel privé"), fmt);
+    fmtRow.append(el("span", null, "Format du duel privé"), fmt2);
     const go = (fn) => () => {
       keep();
       fn();
@@ -4062,7 +5012,7 @@ body.replaying .hud, body.replaying .touch { visibility: hidden; }
       seal: won ? "shu" : "ink",
       title: won ? "Victoire" : "Défaite",
       lead: (won ? `Tu as battu ${foe}` : `${foe} t’a battu`) + (G.kimarite === "utchari" ? ", par utchari." : "."),
-      body: [fin, statsTable(), list(rem, mbtn("Quitter", "Retour au menu en ligne", false, () => leaveOnline(), "quiet"))],
+      body: [fin, statsTable(), list(rem, shareButton(G.lastReplay), mbtn("Quitter", "Retour au menu en ligne", false, () => leaveOnline(), "quiet"))],
       focus: N.gone ? ".mbtn.quiet" : void 0
     });
   }
@@ -4324,7 +5274,7 @@ body.replaying .hud, body.replaying .touch { visibility: hidden; }
     }
     ctx.globalAlpha = 1;
   }
-  var isLocalHuman = (S, i) => G.mode === "online" && G.net ? i === G.net.me : !S.ai[i];
+  var isLocalHuman = (S, i) => G.mode === "watch" ? false : G.mode === "dojo" ? i === 0 : G.mode === "online" && G.net ? i === G.net.me : !S.ai[i];
   var keySlot = (i) => G.mode === "online" ? 0 : i;
   function drawUtchariPrompt(S, alpha) {
     for (let i = 0; i < 2; i++) {
@@ -4385,7 +5335,7 @@ body.replaying .hud, body.replaying .touch { visibility: hidden; }
     ctx.restore();
   }
   function drawStartHint(S) {
-    if (S.round !== 1) return;
+    if (S.round !== 1 || G.mode === "watch") return;
     const y = C - 160;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
@@ -4399,7 +5349,8 @@ body.replaying .hud, body.replaying .touch { visibility: hidden; }
       ctx.fillText(label, C - 26, y);
       drawPadGlyph(C - 26 + w / 2 + 34, y, PAD.dash[0], 20);
     } else {
-      const label = G.mode === "versus" ? `Dash au signal : ${keyName(BIND[0].dash[0])} et ${keyName(BIND[1].dash[0])}` : `Dash au signal : ${keyName(BIND[0].dash[0])}`;
+      const touchOnly = matchMedia("(hover: none) and (pointer: coarse)").matches;
+      const label = touchOnly && G.mode !== "versus" ? "Dash au signal : bouton Dash" : G.mode === "versus" ? `Dash au signal : ${keyName(BIND[0].dash[0])} et ${keyName(BIND[1].dash[0])}` : `Dash au signal : ${keyName(BIND[0].dash[0])}`;
       ctx.fillStyle = "rgba(0,0,0,.45)";
       ctx.fillText(label, C + 2, y + 2);
       ctx.fillStyle = "#efe3c8";
@@ -4441,7 +5392,8 @@ body.replaying .hud, body.replaying .touch { visibility: hidden; }
     ctx.setTransform(V.s, 0, 0, V.s, V.ox, V.oy);
     if (!S || S.view) return;
     if (S.phase === "shikiri") {
-      drawText("Prêts…", "#efe3c8", 104);
+      if (G.flash) drawText(G.flash.text, G.flash.color, G.flash.text.length > 14 ? 72 : 84);
+      else drawText("Prêts…", "#efe3c8", 104);
       drawStartHint(S);
     } else if (G.flash) drawText(G.flash.text, G.flash.color, G.flash.text.length > 14 ? 72 : 84);
   }
@@ -4511,22 +5463,22 @@ body.replaying .hud, body.replaying .touch { visibility: hidden; }
     G.focusY = my;
     render(view, k - ki, dt * sp, { z, fx, fy });
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    const bar = Math.round(V.ch * 0.085 * Math.min(1, R.t / 0.25));
+    const bar2 = Math.round(V.ch * 0.085 * Math.min(1, R.t / 0.25));
     ctx.fillStyle = "rgba(12,8,5,.92)";
-    ctx.fillRect(0, 0, V.cw, bar);
-    ctx.fillRect(0, V.ch - bar, V.cw, bar);
-    if (bar > 10) {
-      const fs = Math.max(16, Math.round(bar * 0.42));
+    ctx.fillRect(0, 0, V.cw, bar2);
+    ctx.fillRect(0, V.ch - bar2, V.cw, bar2);
+    if (bar2 > 10) {
+      const fs = Math.max(16, Math.round(bar2 * 0.42));
       ctx.textBaseline = "middle";
       ctx.textAlign = "left";
       ctx.fillStyle = "#efe3c8";
       ctx.font = `400 ${fs}px "Dela Gothic One", "Arial Black", sans-serif`;
-      ctx.fillText("Ralenti", Math.round(fs * 1.2), bar / 2);
+      ctx.fillText("Ralenti", Math.round(fs * 1.2), bar2 / 2);
       ctx.textAlign = "right";
       ctx.fillStyle = "rgba(239,227,200,.75)";
       ctx.font = `700 ${Math.round(fs * 0.6)}px "Zen Kaku Gothic New", sans-serif`;
       const skip = G.padFamily ? `Passer : ${PAD_GLYPHS[G.padFamily][0][0]}` : matchMedia("(pointer: coarse)").matches ? "Touche l’écran pour passer" : "Passer : n’importe quelle touche";
-      ctx.fillText(skip, V.cw - Math.round(fs * 1.2), V.ch - bar / 2);
+      ctx.fillText(skip, V.cw - Math.round(fs * 1.2), V.ch - bar2 / 2);
     }
     if (k >= R.i1) endReplay();
   }
@@ -4641,7 +5593,7 @@ body.replaying .hud, body.replaying .touch { visibility: hidden; }
     save.keyNames = Object.assign({}, save.keyNames, { [e.code]: e.key.toUpperCase() });
   }
   var anyHeld = (codes) => codes.some((c) => held.has(c));
-  var solo = () => G.mode === "ai" || G.mode === "career" || G.mode === "online";
+  var solo = () => G.mode === "ai" || G.mode === "career" || G.mode === "online" || G.mode === "dojo";
   var bindsFor = (i) => solo() ? i === 0 ? BIND : [] : [BIND[i]];
   var inPlay = () => G.screen === "match" && !G.paused && ov.hidden && G.S && G.S.phase !== "matchEnd";
   addEventListener("keydown", (e) => {
@@ -4664,6 +5616,14 @@ body.replaying .hud, body.replaying .touch { visibility: hidden; }
     }
     if (e.code === "KeyM" && !e.repeat && !(inPlay() && ALL_GAME_CODES.has("KeyM"))) toggleMute();
     if (!inPlay()) return;
+    if (G.mode === "watch") {
+      const act = { Space: watchPause, KeyV: watchSpeed, ArrowRight: watchNext }[e.code];
+      if (act) {
+        e.preventDefault();
+        if (!e.repeat) act();
+      }
+      return;
+    }
     if (ALL_GAME_CODES.has(e.code)) e.preventDefault();
     held.add(e.code);
     if (e.repeat) return;
@@ -4795,30 +5755,45 @@ body.replaying .hud, body.replaying .touch { visibility: hidden; }
   }
 
   // src/game/loop.js
+  function simTick(S) {
+    if (G.watch) {
+      playbackStep(G.watch);
+      return;
+    }
+    const v = [
+      localCmd(S.ai[0] ? aiCommand(S, 0) : humanCmd(0, S)),
+      localCmd(G.dojo ? dojoCmd(S) : S.ai[1] ? aiCommand(S, 1) : humanCmd(1, S))
+    ];
+    const rn0 = S.rn;
+    step(S, [unpackIn(v[0]), unpackIn(v[1])]);
+    if (G.recorder) recordTick(G.recorder, S, v, rn0);
+  }
   function localAdvance(dt) {
-    const S = G.S;
-    G.acc += dt;
+    if (G.dojo && G.dojo.frozen) {
+      G.acc = 0;
+      return;
+    }
+    G.acc += dt * (G.watch ? G.watch.speed : 1);
     let n = 0;
-    while (G.acc >= DT && n < 30) {
-      const cmds = [
-        S.ai[0] ? aiCommand(S, 0) : humanCmd(0, S),
-        S.ai[1] ? aiCommand(S, 1) : humanCmd(1, S)
-      ];
-      step(S, cmds);
+    while (G.acc >= DT && n < 60) {
+      const S = G.S;
+      simTick(S);
+      const ev = G.dojo ? S.events.slice() : null;
       for (let k = 0; k < 2; k++) if (S.score[k] === 0 && S.score[1 - k] === S.win - 1 && S.win > 1) G.down[k] = true;
       const fx = handleEvents(S);
       if (S.phase === "play" || S.phase === "roundEnd") {
         G.rec.push({ tick: S.tick, p: [snapPlayer(S.p[0]), snapPlayer(S.p[1])], ring: S.ring, fx, win: fx.some((e) => e.type === "roundWin") });
         if (G.rec.length > REC_MAX) G.rec.shift();
       }
+      if (G.dojo) dojoAfter(S, ev);
       G.acc -= DT;
       n++;
-      if (S.phase === "matchEnd" || G.replay) {
+      if (S.phase === "matchEnd" || G.replay || G.dojo && G.dojo.frozen) {
         G.acc = 0;
         break;
       }
     }
-    if (n === 30) G.acc = 0;
+    if (n === 60) G.acc = 0;
   }
   function frame(now) {
     const dt = Math.min(0.25, (now - G.last) / 1e3);
@@ -4841,9 +5816,10 @@ body.replaying .hud, body.replaying .touch { visibility: hidden; }
     const online = G.mode === "online";
     if (online) {
       if (G.net) netFrame(dt);
-    } else if (!G.paused) localAdvance(dt);
+    } else if (!G.paused && !(G.watch && G.watch.paused)) localAdvance(dt);
     const S = G.S;
-    if (online || !G.paused) {
+    const still = G.paused || G.watch && G.watch.paused;
+    if (online || !still) {
       for (const q of G.particles) {
         q.x += q.vx * dt;
         q.y += q.vy * dt;
@@ -4891,6 +5867,11 @@ body.replaying .hud, body.replaying .touch { visibility: hidden; }
   if (invite) {
     history.replaceState(null, "", location.pathname + location.search);
     joinScreen(invite[1].toUpperCase());
+  }
+  var shared = /[#&]replay=([A-Za-z0-9_-]+)/.exec(location.hash);
+  if (shared) {
+    history.replaceState(null, "", location.pathname + location.search);
+    openReplayLink(shared[1]);
   }
   fit();
   requestAnimationFrame(frame);

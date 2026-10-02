@@ -349,4 +349,4 @@ function hashState(S) {
   return (h >>> 0).toString(16);
 }
 
-export { NOCMD, canUtchari, hashState, newMatch, rand, step, utchariReady };
+export { NOCMD, canUtchari, hashState, newMatch, rand, startRound, step, utchariReady };

@@ -14,6 +14,10 @@ const G = {
   stats: [newStats(), newStats()], dashOpen: [false, false], labels: [],
   rec: [],                // dernières secondes de la manche, image par image, pour le ralenti
   replay: null, back: null, padFamily: null,
+  recorder: null,         // enregistrement du match en cours (ralenti partageable)
+  lastReplay: null,       // dernier match terminé, prêt à partager
+  watch: null,            // lecture d'un ralenti partagé
+  dojo: null,             // leçon du dojo en cours
 };
 
 export { G, newStats };

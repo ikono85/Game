@@ -26,6 +26,10 @@ Reste un fichier front pur (HTML/JS), aucun serveur.
 - **Progression / déblocages** : skins de lutteur, éventuellement variantes
   d'arène. Reste stocké en local (`localStorage`) à ce stade — pas encore de
   compte.
+- **Fait : dojo et ralentis partagés.** Sept leçons guidées (une par technique)
+  et un lien qui rejoue tout un match à partir de sa graine et des commandes. Le
+  même principe servira au classé : le serveur rejouera les commandes pour
+  valider le résultat.
 - **Point de vigilance à anticiper dès maintenant** : garder la simulation
   aussi déterministe que possible (pas de `Math.random()` non seedé dans la
   boucle physique si évitable, dt fixe si possible). Ça ne sert à rien

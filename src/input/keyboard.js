@@ -9,6 +9,7 @@ import { endReplay } from '../render/replay.js';
 import { captureKey } from '../ui/controls.js';
 import { ov } from '../ui/dom.js';
 import { autoPause, toggleMute, togglePause } from '../ui/pause.js';
+import { watchNext, watchPause, watchSpeed } from '../game/watch.js';
 
 const held = new Set();
 const latch = [{ dash: false, feint: false }, { dash: false, feint: false }];
@@ -84,7 +85,7 @@ function rememberKeyName(e) {
   save.keyNames = Object.assign({}, save.keyNames, { [e.code]: e.key.toUpperCase() });
 }
 const anyHeld = codes => codes.some(c => held.has(c));
-const solo = () => G.mode === 'ai' || G.mode === 'career' || G.mode === 'online';
+const solo = () => G.mode === 'ai' || G.mode === 'career' || G.mode === 'online' || G.mode === 'dojo';
 // En solo, les deux jeux de touches contrôlent le joueur rouge.
 const bindsFor = i => solo() ? (i === 0 ? BIND : []) : [BIND[i]];
 const inPlay = () => G.screen === 'match' && !G.paused && ov.hidden && G.S && G.S.phase !== 'matchEnd';
@@ -98,6 +99,11 @@ addEventListener('keydown', e => {
   if (e.code === 'Escape') { if (!ov.hidden && G.back) G.back(); else togglePause(); return; }
   if (e.code === 'KeyM' && !e.repeat && !(inPlay() && ALL_GAME_CODES.has('KeyM'))) toggleMute();   // sauf si M sert au jeu
   if (!inPlay()) return;                     // menus : les touches gardent leur rôle normal
+  if (G.mode === 'watch') {                  // ralenti partagé : pause, vitesse, manche suivante
+    const act = { Space: watchPause, KeyV: watchSpeed, ArrowRight: watchNext }[e.code];
+    if (act) { e.preventDefault(); if (!e.repeat) act(); }
+    return;
+  }
   if (ALL_GAME_CODES.has(e.code)) e.preventDefault();
   held.add(e.code);
   if (e.repeat) return;

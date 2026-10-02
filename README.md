@@ -16,9 +16,30 @@ modules dans `src/` (voir « Organisation du projet »).
   un combat en une manche par jour. Majorité de victoires (kachi-koshi) =
   promotion, sinon rétrogradation. Les rangs débloquent des mawashi (ceintures)
   au Vestiaire. Progression sauvegardée en local (`localStorage`).
+- **Dojo** — sept leçons courtes contre un apprenti, une par technique : le dash,
+  le départ (tachiai), la garde, la feinte, tenir au bord, l'utchari, les hanches
+  basses. Les leçons réussies sont sauvegardées en local.
 - **2 joueurs** — même clavier ou deux manettes, premier à 3 manches.
 - **Contre l'IA** — 5 lutteurs aux styles différents, premier à 3 manches.
 - **En ligne** — un joueur par écran, voir ci-dessous.
+
+## Ralentis partagés
+
+Après chaque match (contre l'IA, à deux, en carrière ou en ligne), **Partager le
+ralenti** copie un lien. Celui qui l'ouvre revoit tout le combat, manche par manche :
+pause (Espace), vitesse ×1 / ×2 / ×0,5 (V), manche suivante (→).
+
+Le lien ne contient pas de vidéo : seulement la graine du match et les commandes
+des joueurs humains, tick par tick, compressées (quelques centaines à quelques
+milliers de caractères). L'IA, déterministe, est rejouée telle quelle. Chaque
+manche repart de son état enregistré : si un autre navigateur calcule un sinus un
+poil différent et que le combat dérive, la manche suivante et le score final
+restent justes. Un lien créé depuis le fichier local pointe vers le jeu publié
+(https://ikono85.github.io/Game/).
+
+`REPLAY_VER` (dans `src/game/replayfile.js`) est à augmenter quand la physique ou
+l'IA change : un ancien lien affiche alors « Autre version du jeu » au lieu de
+rejouer un combat faux.
 
 ## En ligne
 
@@ -126,6 +147,7 @@ src/
   assets.js         liste des images du décor
   sim/              la simulation, sans rien d'affichage
     constants.js      tailles, physique, temps (dash, garde, utchari…)
+    cmd.js            commandes compactées (jeu en ligne, ralentis)
     simulation.js     un tick de jeu : déplacements, chocs, bord, utchari, manches
     ai.js             les 5 lutteurs IA et leurs styles
   render/           ce qui se dessine
@@ -137,7 +159,9 @@ src/
   audio/sound.js    les sons, synthétisés
   input/            clavier (touches modifiables), manette, tactile
   ui/               écrans : menu, commandes, carrière, vestiaire, pause, bandeau
-  game/             état partagé, boucle principale, match local, carrière, sauvegarde
+  game/             état partagé, boucle principale, match local, carrière, sauvegarde,
+                    dojo (dojo.js, leçons dans dojolessons.js),
+                    ralentis partagés (replayfile.js : enregistrement et lien ; watch.js : lecteur)
   net/              le mode en ligne (connexion, rollback, écrans)
 assets/             les vraies images : wrestler.webp (planche), map.jpg, crowd.png
 tests/              tests de la simulation
@@ -180,6 +204,11 @@ tenue au bord, l'utchari et son contre, que chaque IA termine ses matchs, et
 les deux propriétés dont dépend le jeu en ligne : revenir à un état copié
 puis resimuler redonne la même partie, et un état passé par JSON (la synchro
 de l'hôte) continue la même partie.
+
+`tests/replay.test.mjs` vérifie qu'un lien de ralenti rejoue exactement le même
+match, qu'un combat qui dérive retombe sur le bon score, et qu'un lien abîmé est
+refusé proprement. `tests/dojo.test.mjs` joue chaque leçon du dojo avec un joueur
+scripté : elle se réussit en suivant la consigne, et pas en restant immobile.
 
 ## Publication
 

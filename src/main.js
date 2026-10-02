@@ -27,6 +27,7 @@ import { careerBoutResult } from './ui/career.js';
 import { updateScore } from './ui/hud.js';
 import { menu } from './ui/menus.js';
 import { syncMute } from './ui/pause.js';
+import { openReplayLink } from './game/watch.js';
 
 
 // Accès pour les tests (déterminisme, IA contre IA)
@@ -41,6 +42,12 @@ const invite = /[#&]duel=([A-Za-z0-9]{5})\b/.exec(location.hash);
 if (invite) {
   history.replaceState(null, '', location.pathname + location.search);
   joinScreen(invite[1].toUpperCase());
+}
+// ralenti partagé : …/#replay=… rejoue un combat
+const shared = /[#&]replay=([A-Za-z0-9_-]+)/.exec(location.hash);
+if (shared) {
+  history.replaceState(null, '', location.pathname + location.search);
+  openReplayLink(shared[1]);
 }
 fit();
 requestAnimationFrame(frame);

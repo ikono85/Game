@@ -4,6 +4,7 @@
 import { Sound } from '../audio/sound.js';
 import { BASHO_DAYS, RANKS, career, newBasho } from '../game/career.js';
 import { startMatch, statsTable } from '../game/match.js';
+import { shareButton } from '../game/watch.js';
 import { persist, save } from '../game/save.js';
 import { G } from '../game/state.js';
 import { FRAME, SKINS, sheetReady, skinSheet } from '../render/sprites.js';
@@ -86,7 +87,7 @@ function careerBoutResult(won) {
     kanji: won ? '勝' : '負', seal: won ? 'shu' : 'ink',
     title: won ? 'Victoire' : 'Défaite',
     lead: `Jour ${b.day} contre ${o.name}` + (G.kimarite === 'utchari' && won ? ', gagné par utchari.' : '.'),
-    body: [recordEl(b.results, -1), statsTable(), list(next)],
+    body: [recordEl(b.results, -1), statsTable(), list(next, G.S && G.S.phase === 'matchEnd' && G.S.endTick ? shareButton(G.lastReplay) : null)],
   });
 }
 
@@ -95,11 +96,18 @@ function bashoEnd() {
   const wins = b.results.filter(x => x).length, results = b.results.slice();
   const before = c.rank, bestBefore = c.best;
   let verdict, cls;
-  if (c.rank === 8 && wins >= 6) { c.rank = 9; verdict = 'Promu Yokozuna'; cls = 'up'; }
-  else if (wins === BASHO_DAYS) { c.rank = Math.min(8, Math.max(c.rank, c.rank + 2)); c.yusho++; verdict = 'Sept victoires sur sept : tu montes de deux rangs'; cls = 'up'; }
-  else if (wins * 2 > BASHO_DAYS) { c.rank = c.rank === 9 ? 9 : Math.min(8, c.rank + 1); verdict = 'Plus de victoires que de défaites : promotion'; cls = 'up'; }
-  else { c.rank = c.rank === 9 ? 9 : Math.max(0, c.rank - 1); verdict = c.rank === 9 ? 'Plus de défaites que de victoires, mais un Yokozuna ne descend pas' : 'Plus de défaites que de victoires : rétrogradation'; cls = 'down'; }
-  if (c.rank === before && cls === 'up') verdict += ', tu es déjà au sommet';
+  const perfect = wins === BASHO_DAYS, kachi = wins * 2 > BASHO_DAYS;
+  if (perfect) c.yusho++;
+  if (c.rank === 9) {                                  // un Yokozuna ne monte ni ne descend
+    cls = kachi ? 'up' : 'down';
+    verdict = perfect ? 'Sept victoires sur sept : un basho parfait pour le Yokozuna'
+      : kachi ? 'Plus de victoires que de défaites : le Yokozuna tient son rang'
+      : 'Plus de défaites que de victoires, mais un Yokozuna ne descend pas';
+  } else if (c.rank === 8 && wins >= 6) { c.rank = 9; verdict = 'Promu Yokozuna'; cls = 'up'; }
+  else if (c.rank === 8 && kachi) { verdict = 'Plus de victoires que de défaites : tu restes Ōzeki. Il en faut 6 pour devenir Yokozuna'; cls = 'up'; }
+  else if (perfect) { c.rank = Math.min(8, c.rank + 2); verdict = c.rank - before === 2 ? 'Sept victoires sur sept : tu montes de deux rangs' : 'Sept victoires sur sept : promotion'; cls = 'up'; }
+  else if (kachi) { c.rank++; verdict = 'Plus de victoires que de défaites : promotion'; cls = 'up'; }
+  else { c.rank = Math.max(0, c.rank - 1); verdict = before === 0 ? 'Plus de défaites que de victoires : tu restes Jonokuchi' : 'Plus de défaites que de victoires : rétrogradation'; cls = 'down'; }
   c.best = Math.max(c.best, c.rank);
   c.bashoNo++; c.basho = null; newBasho(c); persist();
   const unlocked = SKINS.filter(s => s.rank > bestBefore && s.rank <= c.best);

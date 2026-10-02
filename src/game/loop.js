@@ -12,20 +12,36 @@ import { REC_MAX, snapPlayer, updateReplay } from '../render/replay.js';
 import { aiCommand } from '../sim/ai.js';
 import { C, DT, clamp } from '../sim/constants.js';
 import { step } from '../sim/simulation.js';
+import { localCmd, unpackIn } from '../sim/cmd.js';
+import { playbackStep, recordTick } from './replayfile.js';
+import { dojoAfter, dojoCmd } from './dojo.js';
 import { ov } from '../ui/dom.js';
 import { hud } from '../ui/hud.js';
 
-/** Partie locale (solo, 2 joueurs sur le même écran) : simulation à pas fixe. */
+/**
+ * Un tick d'une partie locale : commandes (humain, IA, mannequin du dojo ou ralenti partagé),
+ * compactées comme en ligne, puis simulation. La partie est enregistrée pour pouvoir la partager.
+ */
+function simTick(S) {
+  if (G.watch) { playbackStep(G.watch); return; }
+  const v = [
+    localCmd(S.ai[0] ? aiCommand(S, 0) : humanCmd(0, S)),
+    localCmd(G.dojo ? dojoCmd(S) : S.ai[1] ? aiCommand(S, 1) : humanCmd(1, S)),
+  ];
+  const rn0 = S.rn;
+  step(S, [unpackIn(v[0]), unpackIn(v[1])]);
+  if (G.recorder) recordTick(G.recorder, S, v, rn0);
+}
+
+/** Partie locale (solo, 2 joueurs, dojo, ralenti partagé) : simulation à pas fixe. */
 function localAdvance(dt) {
-  const S = G.S;
-  G.acc += dt;
+  if (G.dojo && G.dojo.frozen) { G.acc = 0; return; }
+  G.acc += dt * (G.watch ? G.watch.speed : 1);
   let n = 0;
-  while (G.acc >= DT && n < 30) {
-    const cmds = [
-      S.ai[0] ? aiCommand(S, 0) : humanCmd(0, S),
-      S.ai[1] ? aiCommand(S, 1) : humanCmd(1, S),
-    ];
-    step(S, cmds);
+  while (G.acc >= DT && n < 60) {
+    const S = G.S;                     // le dojo peut remplacer la partie entre deux ticks
+    simTick(S);
+    const ev = G.dojo ? S.events.slice() : null;
     for (let k = 0; k < 2; k++) if (S.score[k] === 0 && S.score[1 - k] === S.win - 1 && S.win > 1) G.down[k] = true;
     const fx = handleEvents(S);
     // on garde les dernières secondes de la manche pour le ralenti
@@ -33,10 +49,11 @@ function localAdvance(dt) {
       G.rec.push({ tick: S.tick, p: [snapPlayer(S.p[0]), snapPlayer(S.p[1])], ring: S.ring, fx, win: fx.some(e => e.type === 'roundWin') });
       if (G.rec.length > REC_MAX) G.rec.shift();
     }
+    if (G.dojo) dojoAfter(S, ev);
     G.acc -= DT; n++;
-    if (S.phase === 'matchEnd' || G.replay) { G.acc = 0; break; }
+    if (S.phase === 'matchEnd' || G.replay || (G.dojo && G.dojo.frozen)) { G.acc = 0; break; }
   }
-  if (n === 30) G.acc = 0;
+  if (n === 60) G.acc = 0;
 }
 
 function frame(now) {
@@ -53,9 +70,10 @@ function frame(now) {
   }
   const online = G.mode === 'online';
   if (online) { if (G.net) netFrame(dt); }
-  else if (!G.paused) localAdvance(dt);
+  else if (!G.paused && !(G.watch && G.watch.paused)) localAdvance(dt);
   const S = G.S;
-  if (online || !G.paused) {
+  const still = G.paused || (G.watch && G.watch.paused);   // pause : les effets s'arrêtent aussi
+  if (online || !still) {
     // effets visuels (hors simulation)
     for (const q of G.particles) { q.x += q.vx * dt; q.y += q.vy * dt; q.vx *= 0.9; q.vy *= 0.9; q.life -= dt; }
     G.particles = G.particles.filter(q => q.life > 0);

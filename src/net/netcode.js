@@ -11,7 +11,9 @@ import { VFX, handleEvents, throwZabuton } from '../render/effects.js';
 import { REC_MAX, snapPlayer, startReplay } from '../render/replay.js';
 import { SKINS } from '../render/sprites.js';
 import { DT, SIM_HZ, clamp } from '../sim/constants.js';
-import { NOCMD, newMatch, step } from '../sim/simulation.js';
+import { NO_IN, localCmd, packIn, unpackIn } from '../sim/cmd.js';
+import { newMatch, step } from '../sim/simulation.js';
+import { recordingFromTicks, roundHead } from '../game/replayfile.js';
 import { setNames, updateScore } from '../ui/hud.js';
 import { menu } from '../ui/menus.js';
 import { hideOverlay, list, mbtn, showScreen } from '../ui/widgets.js';
@@ -52,17 +54,6 @@ function randomCode() {
   return Array.from(b, x => CODE_CHARS[x % CODE_CHARS.length]).join('');
 }
 
-// --- Commandes compactées : direction (normalisée, au centième) + 3 boutons dans un entier ---
-function packIn(c) {
-  let qx = 0, qy = 0;
-  const n = Math.hypot(c.mx, c.my);
-  if (n > 0) { qx = Math.round(c.mx / n * 100); qy = Math.round(c.my / n * 100); }
-  return ((qx + 128) << 16) | ((qy + 128) << 8) | (c.dash ? 1 : 0) | (c.feint ? 2 : 0) | (c.guard ? 4 : 0);
-}
-function unpackIn(v) {
-  return { mx: ((v >> 16) & 255) - 128, my: ((v >> 8) & 255) - 128, dash: !!(v & 1), feint: !!(v & 2), guard: !!(v & 4) };
-}
-const NO_IN = packIn(NOCMD);
 const predictIn = v => v & ~3;          // il garde sa direction et sa garde ; un dash ou une feinte ne se devine pas
 
 // --- Connexion PeerJS ---
@@ -142,9 +133,19 @@ function netSend(m, N = G.net) {
   if (!N || !N.conn || !N.conn.open) return;
   const lag = window.__netLag;                       // tests : latence simulée (l'ordre des messages est conservé)
   if (!lag) { try { N.conn.send(m); } catch { /* canal fermé */ } return; }
+  // file d'attente : des setTimeout séparés peuvent se déclencher dans le désordre (délais arrondis)
   const now = performance.now(), at = Math.max(now + lag.ms + Math.random() * (lag.jitter || 0), N.lagAt || 0);
   N.lagAt = at;
-  setTimeout(() => { if (N.conn && N.conn.open) try { N.conn.send(m); } catch { /* canal fermé */ } }, at - now);
+  (N.lagQ || (N.lagQ = [])).push({ at, m });
+  if (N.lagQ.length === 1) lagFlush(N);
+}
+function lagFlush(N) {
+  const q = N.lagQ;
+  while (q.length && q[0].at <= performance.now()) {
+    const { m } = q.shift();
+    if (N.conn && N.conn.open) try { N.conn.send(m); } catch { /* canal fermé */ }
+  }
+  if (q.length) setTimeout(() => lagFlush(N), Math.max(0, q[0].at - performance.now()));
 }
 const setNetStatus = (N, text) => { if (N.statusEl) N.statusEl.textContent = text; };
 
@@ -260,6 +261,8 @@ function startOnlineMatch(st) {
   handleEvents(G.S);
   const M = N.M = newNetMatch();
   M.snaps.set(0, { s: structuredClone(G.S), c: {} });
+  // ralenti partageable : commandes et départs de manche, rangés par tick (réécrits si on resimule)
+  M.rec = { meta: { mode: 'online', names: G.names.slice(), skins: [st.skin, 'blue'], win: st.win }, head0: roundHead(G.S), inp: [], heads: new Map() };
   G.last = performance.now();
   const early = N.early; N.early = [];
   for (const m of early) if (m.mid === N.mid) onNetData(m);
@@ -270,12 +273,15 @@ function onRemoteInputs(M, start, vals) {
   const them = 1 - G.net.me;
   for (let k = 0; k < vals.length && k < 2000; k++) {
     const t = start + k;
-    if (t <= M.remoteTop) continue;                   // déjà reçue
-    if (t !== M.remoteTop + 1) break;                 // trou (n'arrive pas : le canal est fiable et ordonné)
+    if (t <= M.remoteTop || M.inp[them][t] !== undefined) continue;   // déjà reçue
+    if (t > M.remoteTop + NET_KEEP) break;            // beaucoup trop loin : on ne pourrait pas revenir en arrière
+    // le canal est fiable et ordonné, mais si un paquet arrivait en avance on le garde quand même :
+    // un trou dans les commandes bloquerait la partie pour de bon
     const v = vals[k] & 0xffffff;
-    M.inp[them][t] = v; M.remoteTop = t;
+    M.inp[them][t] = v;
     if (G.S && t <= G.S.tick && M.used[t] !== v) M.rollFrom = Math.min(M.rollFrom, t);   // on s'était trompé
   }
+  while (M.inp[them][M.remoteTop + 1] !== undefined) M.remoteTop++;
 }
 function netCmds(M, t) {
   const me = G.net.me, them = 1 - me;
@@ -291,8 +297,11 @@ function netCmds(M, t) {
  * resimulé : chacun reçoit une clé (type, joueur, manche, n-ième de la manche) mémorisée.
  */
 function netStep(M) {
-  const S = G.S;
-  step(S, netCmds(M, S.tick + 1));
+  const S = G.S, t = S.tick + 1, rn0 = S.rn;
+  step(S, netCmds(M, t));
+  const me = G.net.me;
+  M.rec.inp[t] = me === 0 ? [M.inp[0][t], M.used[t]] : [M.used[t], M.inp[1][t]];
+  if (S.rn !== rn0) M.rec.heads.set(t, roundHead(S)); else M.rec.heads.delete(t);
   const all = S.events, show = [];
   for (const e of all) {
     if (e.type === 'hit' && e.force <= 200) continue;           // simple contact : aucun effet
@@ -383,7 +392,7 @@ function netFrame(dt) {
       // invité arrêté sur une fin pas encore confirmée par l'hôte : on continue d'envoyer nos commandes,
       // au cas où l'hôte, lui, poursuivrait le combat (écart de calcul entre navigateurs)
       if (M.localTop - NET_DELAY + 1 - M.remoteTop > NET_MAX_AHEAD) { G.acc = Math.min(G.acc, DT); break; }
-      const v = packIn(window.__netBot ? window.__netBot(S, N.me) : humanCmd(0, S));
+      const v = localCmd(window.__netBot ? window.__netBot(S, N.me) : humanCmd(0, S));
       M.inp[N.me][++M.localTop] = v; M.out.push(v);
       G.acc -= DT; n++;
       continue;
@@ -391,7 +400,7 @@ function netFrame(dt) {
     if (S.tick + 1 - M.remoteTop > NET_MAX_AHEAD) { stalled = true; break; }   // on attend ses commandes
     const ti = S.tick + 1 + NET_DELAY;                // ma commande d'aujourd'hui s'applique à ce tick
     if (ti > M.localTop) {
-      const v = packIn(window.__netBot ? window.__netBot(S, N.me) : humanCmd(0, S));
+      const v = localCmd(window.__netBot ? window.__netBot(S, N.me) : humanCmd(0, S));
       for (let t = M.localTop + 1; t <= ti; t++) { M.inp[N.me][t] = v; M.out.push(v); }
       M.localTop = ti;
     }
@@ -426,6 +435,8 @@ function checkNetEnd(N, M) {
 }
 function netMatchOver(N, w) {
   N.M.ended = true; N.phase = 'result'; N.resultW = w;
+  const S = G.S;
+  G.lastReplay = recordingFromTicks(N.M.rec, S.phase === 'matchEnd' && S.endTick ? Math.min(S.endTick, S.tick) : S.tick, { score: S.score.slice(), w });
   G.acc = 0;
   startReplay(() => {
     if (G.net !== N) return;

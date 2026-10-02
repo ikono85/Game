@@ -48,6 +48,20 @@
   </div>
 </div>
 
+<div class="watch-bar" id="watchBar" hidden>
+  <span class="wb-tag">Ralenti partagé</span>
+  <button class="icon-btn" id="wPause" type="button">Pause<span class="kb-only"> · Espace</span></button>
+  <button class="icon-btn" id="wSpeed" type="button">Vitesse ×1<span class="kb-only"> · V</span></button>
+  <button class="icon-btn" id="wNext" type="button">Manche suivante<span class="kb-only"> · →</span></button>
+  <button class="icon-btn" id="wQuit" type="button">Quitter</button>
+</div>
+
+<div class="dojo-panel" id="dojoPanel" hidden aria-live="polite">
+  <div class="dj-head"><span class="dj-step" id="djStep"></span><span class="dj-reps" id="djReps"></span></div>
+  <p class="dj-goal" id="djGoal"></p>
+  <p class="dj-msg" id="djMsg"></p>
+</div>
+
 <div class="touch"><button id="tguard" type="button">Garde</button><button id="tfeint" type="button">Feinte</button><button id="tdash" type="button">Dash</button></div>
 
 <!-- build.mjs remplace les deux blocs suivants : le jeu (src/main.js et ses modules), puis PeerJS -->

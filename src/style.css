@@ -417,3 +417,36 @@ body.replaying .hud, body.replaying .touch { visibility: hidden; }
   .binds th:nth-child(1) { width: 19%; } .binds th:nth-child(2) { width: 25%; }
   .binds th:nth-child(3) { width: 30%; } .binds th:nth-child(4) { width: 26%; }
 }
+
+/* ---------- Dojo : panneau de la leçon ---------- */
+.dojo-panel {
+  position: fixed; z-index: 5; left: 50%; bottom: 14px; transform: translateX(-50%);
+  width: min(640px, calc(100% - 24px)); box-sizing: border-box; padding: 12px 16px 13px;
+  background: linear-gradient(180deg, var(--wood-hi), var(--wood));
+  border: 2px solid #1c120b; border-radius: 6px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 3px 0 rgba(0,0,0,.4);
+}
+.dj-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.dj-step { font-family: var(--font-display); font-size: 16px; line-height: 1.1; }
+.dj-reps { display: flex; gap: 5px; flex: none; }
+.dj-reps i { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--rope); box-sizing: border-box; }
+.dj-reps i.on { background: var(--gold); border-color: var(--gold); }
+.dj-goal { margin: 6px 0 0; font-size: 15px; line-height: 1.45; color: var(--paper); }
+.dj-msg { margin: 4px 0 0; min-height: 1.4em; font-size: 14px; font-weight: 700; color: var(--gold); }
+body.in-dojo .hud .stars, body.in-dojo .hud .center .label, body.in-dojo .hud .center .round { display: none; }
+@media (hover: none) and (pointer: coarse) { .dojo-panel { bottom: 84px; } }
+
+/* ---------- Ralenti partagé : barre du lecteur ---------- */
+.watch-bar {
+  position: fixed; z-index: 5; left: 50%; bottom: 14px; transform: translateX(-50%);
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; padding: 8px 10px;
+  max-width: calc(100% - 24px); box-sizing: border-box;
+  background: linear-gradient(180deg, var(--wood-hi), var(--wood));
+  border: 2px solid #1c120b; border-radius: 6px; box-shadow: 0 3px 0 rgba(0,0,0,.4);
+}
+.wb-tag { font-family: var(--font-display); font-size: 14px; color: var(--gold); padding: 0 6px; }
+body.replaying .watch-bar { display: none; }
+.share { display: flex; flex-direction: column; }
+.share-link { margin: 8px 0 4px; font-size: 14px; width: 100%; box-sizing: border-box; }
+.watch-bar .icon-btn { margin-top: 0; }
+.net-input.share-link { font: 700 14px/1.3 var(--font-body); max-width: none; padding: 8px 10px; }

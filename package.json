@@ -7,7 +7,7 @@
   "scripts": {
     "build": "node build.mjs",
     "dev": "node build.mjs --watch",
-    "test": "node --test tests/sim.test.mjs"
+    "test": "node --test tests/sim.test.mjs tests/replay.test.mjs tests/dojo.test.mjs"
   },
   "dependencies": {
     "peerjs": "1.5.5"

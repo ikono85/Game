@@ -11,6 +11,9 @@ import { fmtSec, handleEvents, throwZabuton } from '../render/effects.js';
 import { startReplay } from '../render/replay.js';
 import { STYLES, makeProfile } from '../sim/ai.js';
 import { newMatch } from '../sim/simulation.js';
+import { newRecorder } from './replayfile.js';
+import { cleanName } from '../net/netcode.js';
+import { shareButton, watchEnd } from './watch.js';
 import { careerBoutResult } from '../ui/career.js';
 import { setNames, updateScore } from '../ui/hud.js';
 import { menu } from '../ui/menus.js';
@@ -31,10 +34,15 @@ function startMatch(opts) {
   }
   G.S = newMatch({ seed: (Math.random() * 2 ** 31) | 0, win, ai });
   resetMatchFx();
+  // dans le ralenti partagé, « Toi » serait faux pour celui qui regarde : on met le nom de lutteur du joueur
+  const shareNames = [G.names[0] === 'Toi' ? cleanName(save.netName) || 'Rouge' : G.names[0], G.names[1]];
+  G.recorder = newRecorder(G.S, { mode: opts.mode, names: shareNames, skins: [G.skins[0], 'blue'], win,
+    ai: [null, G.opp ? { style: G.opp.style, level: G.opp.level } : null] });
   hideOverlay(); updateScore(); setPauseLabel();
   handleEvents(G.S);
 }
 function resetMatchFx() {
+  G.watch = null; G.dojo = null; G.recorder = null;
   G.screen = 'match'; G.paused = false; G.acc = 0; G.particles = []; G.flash = null; G.zabuton.length = 0;
   G.down = [false, false];
   G.stats = [newStats(), newStats()]; G.dashOpen = [false, false]; G.labels = []; G.rec = []; G.replay = null; G.kimarite = null;
@@ -66,11 +74,13 @@ function statsTable() {
 }
 
 function onMatchEnd(w) {
+  if (G.recorder) G.lastReplay = G.recorder;
   // d'abord le ralenti du coup gagnant, ensuite les coussins éventuels et l'écran de résultat
   startReplay(() => afterReplay(w));
 }
 function afterReplay(w) {
   const S = G.S;
+  if (G.mode === 'watch') { setTimeout(() => watchEnd(w), 300); return; }
   // Exploit : battre un lutteur mieux classé, le Yokozuna, ou remonter de 0–2.
   // Les coussins volent dans l'arène avant que l'écran de résultat ne la recouvre.
   let upset;
@@ -89,6 +99,7 @@ function afterReplay(w) {
     lead: (w === 0 ? "Victoire à l'est" : "Victoire à l'ouest") + (G.kimarite === 'utchari' ? ', par utchari.' : '.'),
     body: [fin, statsTable(), list(
       mbtn('Revanche', G.mode === 'versus' ? 'Mêmes joueurs' : `Contre ${G.opp.name}`, true, () => startMatch({ mode: G.mode, opp: G.opp })),
+      shareButton(G.lastReplay),
       mbtn('Menu', null, false, menu, 'quiet'),
     )],
   }), delay);
