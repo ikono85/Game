@@ -7,7 +7,8 @@ qu'il ne te sorte — et le cercle rétrécit à chaque instant.
 
 Tout le jeu tient dans un seul fichier, `index.html` (sprites intégrés, sons
 synthétisés en WebAudio, bibliothèque réseau PeerJS intégrée). Pour jouer en
-local : ouvrir `index.html` dans un navigateur.
+local : ouvrir `index.html` dans un navigateur. Les sources sont découpées en
+modules dans `src/` (voir « Organisation du projet »).
 
 ## Modes
 
@@ -109,37 +110,74 @@ gonflées). Les décisions sont prises à cadence fixe et l'IA ne « triche » p
 pour distinguer une feinte d'un vrai dash, elle regarde la vitesse réelle de
 l'adversaire.
 
-## Architecture (dans `index.html`)
+## Organisation du projet
 
-1. **Simulation déterministe** — pas fixe de 1/120 s, RNG seedé (mulberry32,
-   état stocké dans la partie), commandes par tick `{mx, my, dash, feint, guard}`,
-   fin de manche en temps simulé. Aucune dépendance au DOM ni à `Math.random`.
-   Même graine + mêmes commandes = même partie : base pour les replays et la
-   prédiction réseau (voir `ROADMAP.md`).
-2. **IA** — produit les mêmes commandes qu'un joueur, à partir de ce qu'elle
-   peut voir.
-3. **Présentation** — rendu canvas interpolé entre deux ticks, particules,
-   foule, sons ; la simulation lui transmet des événements (`hit`, `block`,
-   `roundWin`…).
-4. **Entrées** — clavier par touche physique (`e.code`), API Gamepad, tactile
-   (un doigt suivi par identifiant).
-5. **Menus, carrière, vestiaire, sauvegarde.**
-6. **En ligne** — connexion PeerJS, rollback, synchro de l'hôte, écrans du
-   mode en ligne. PeerJS est intégré dans une balise `<script type="text/plain">`
-   et n'est exécuté que si l'on joue en ligne.
+Le jeu publié est **un seul fichier**, `index.html` : on peut l'ouvrir d'un
+double-clic, le partager, le déposer n'importe où. Mais on ne le modifie pas à
+la main : il est **fabriqué** à partir des sources.
+
+```
+index.html          le jeu, fabriqué par build.mjs (ne pas modifier à la main)
+build.mjs           assemble src/ + assets/ + PeerJS en un seul index.html
+src/
+  index.html        le squelette de la page (bandeau, arène, boutons tactiles)
+  style.css         tout le style (menus, bandeau, commandes…)
+  main.js           point d'entrée : démarre le jeu
+  assets.js         liste des images du décor
+  sim/              la simulation, sans rien d'affichage
+    constants.js      tailles, physique, temps (dash, garde, utchari…)
+    simulation.js     un tick de jeu : déplacements, chocs, bord, utchari, manches
+    ai.js             les 5 lutteurs IA et leurs styles
+  render/           ce qui se dessine
+    sprites.js        planche du lutteur, ceintures (skins)
+    draw.js           l'arène, les lutteurs, les invites à l'écran
+    effects.js        particules, sons et stats déclenchés par la simulation
+    replay.js         le ralenti du coup gagnant
+    view.js           plein écran, gradins prolongés
+  audio/sound.js    les sons, synthétisés
+  input/            clavier (touches modifiables), manette, tactile
+  ui/               écrans : menu, commandes, carrière, vestiaire, pause, bandeau
+  game/             état partagé, boucle principale, match local, carrière, sauvegarde
+  net/              le mode en ligne (connexion, rollback, écrans)
+assets/             les vraies images : wrestler.webp (planche), map.jpg, crowd.png
+tests/              tests de la simulation
+```
+
+La simulation (`src/sim/`) est **déterministe** : pas fixe de 1/120 s, RNG
+seedé dont l'état vit dans la partie, commandes par tick
+`{mx, my, dash, feint, guard}`, aucune dépendance au DOM ni à `Math.random`.
+Même graine + mêmes commandes = même partie : c'est ce qui permet le ralenti,
+les tests et le jeu en ligne à rollback. L'affichage, lui, lit l'état de la
+partie et les événements qu'elle émet (`hit`, `block`, `roundWin`…).
+
+## Modifier le jeu
+
+Il faut [Node.js](https://nodejs.org) (version 20 ou plus), une seule fois.
+Dans le dossier du projet :
+
+```bash
+npm install        # une seule fois : installe esbuild et PeerJS
+npm run dev        # reconstruit index.html à chaque modification de src/ ou assets/
+npm run build      # reconstruit index.html une fois
+npm test           # tests de la simulation
+```
+
+Avec `npm run dev`, modifie un fichier de `src/`, enregistre, puis recharge
+`index.html` dans le navigateur. Pour changer un sprite, remplace l'image
+dans `assets/` (même taille et même disposition : 240 px par image, une rangée
+par animation).
+
+Sur GitHub, chaque modification de `main` lance les tests et reconstruit
+`index.html` s'il n'est pas à jour ; GitHub Pages publie ensuite le jeu.
 
 ## Tests
 
-```bash
-node --test tests/sim.test.mjs
-```
-
-Les tests extraient la simulation directement de `index.html` et vérifient le
-déterminisme, le faux départ, le tachiai, le rétrécissement du cercle, que
-chaque IA termine ses matchs, et les deux propriétés dont dépend le jeu en
-ligne : revenir à un état copié puis resimuler redonne la même partie, et un
-état passé par JSON (la synchro de l'hôte) continue la même partie. Ils tournent aussi à chaque push
-(`.github/workflows/tests.yml`).
+Les tests (`tests/sim.test.mjs`) importent la simulation et vérifient le
+déterminisme, le faux départ, le tachiai, le rétrécissement du cercle, la
+tenue au bord, l'utchari et son contre, que chaque IA termine ses matchs, et
+les deux propriétés dont dépend le jeu en ligne : revenir à un état copié
+puis resimuler redonne la même partie, et un état passé par JSON (la synchro
+de l'hôte) continue la même partie.
 
 ## Publication
 

@@ -1,0 +1,56 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Dohyō Duel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@400;700&display=swap">
+<!-- build.mjs remplace la ligne suivante par le contenu de src/style.css -->
+<style>/* STYLE */</style>
+</head><body>
+
+<header class="hud" id="hud">
+  <div class="plaque p1">
+    <div class="side-kanji" aria-hidden="true">東</div>
+    <div class="info">
+      <div class="who"><span class="name" id="n1">Rouge</span><span class="rank">Est</span></div>
+      <div class="stars" id="st1" aria-label="Manches gagnées par Rouge"></div>
+      <div class="gauges">
+        <div class="gauge">Dash<div class="track"><div class="fill" id="d1"></div></div></div>
+        <div class="gauge">Garde<div class="track"><div class="fill" id="g1"></div></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="center">
+    <span class="label">Manche</span>
+    <span class="round" id="roundNo">1</span>
+    <span class="status" id="status"></span>
+    <span class="net-info" id="netInfo" hidden></span>
+    <div class="hud-btns">
+      <button class="icon-btn" id="pauseBtn" type="button">Pause<span class="kb-only"> · Échap</span><span class="pad-only"> <span class="pad-btn" data-pad="9">Menu</span></span></button>
+      <button class="icon-btn" id="muteBtn" type="button" aria-pressed="false" title="Son (touche M)">Son</button>
+    </div>
+  </div>
+  <div class="plaque p2">
+    <div class="side-kanji" aria-hidden="true">西</div>
+    <div class="info">
+      <div class="who"><span class="name" id="n2">Bleu</span><span class="rank">Ouest</span></div>
+      <div class="stars" id="st2" aria-label="Manches gagnées par Bleu"></div>
+      <div class="gauges">
+        <div class="gauge">Dash<div class="track"><div class="fill" id="d2"></div></div></div>
+        <div class="gauge">Garde<div class="track"><div class="fill" id="g2"></div></div></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="stage">
+  <canvas id="c" width="1408" height="1408" aria-label="Arène de sumo"></canvas>
+  <div class="overlay" id="ov">
+    <div class="card" id="card"></div>
+  </div>
+</div>
+
+<div class="touch"><button id="tguard" type="button">Garde</button><button id="tfeint" type="button">Feinte</button><button id="tdash" type="button">Dash</button></div>
+
+<!-- build.mjs remplace les deux blocs suivants : le jeu (src/main.js et ses modules), puis PeerJS -->
+<script>/* JEU */</script>
+<script type="text/plain" id="peerjs-lib">/* PEERJS */</script>
+</body></html>

@@ -1,0 +1,35 @@
+name: Tests et construction
+
+# À chaque modification : tests de la simulation, puis construction de index.html (le jeu en un
+# seul fichier). Si index.html n'avait pas été reconstruit, il est mis à jour ici et GitHub Pages
+# publie la nouvelle version (Settings → Pages → Deploy from a branch → main, / (root)).
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: Mettre à jour index.html
+        if: github.event_name != 'pull_request'
+        run: |
+          if git diff --quiet -- index.html; then echo "index.html est déjà à jour"; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "Reconstruit index.html"
+          git push

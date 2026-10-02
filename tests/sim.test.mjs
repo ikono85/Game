@@ -1,17 +1,11 @@
-// Tests de la simulation de Dohyō Duel, extraite directement de index.html.
-// Lancer : node --test tests/sim.test.mjs
+// Tests de la simulation de Dohyō Duel (src/sim/), sans navigateur.
+// Lancer : npm test   (ou : node --test tests/sim.test.mjs)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { newMatch, step, hashState, NOCMD, canUtchari } from '../src/sim/simulation.js';
+import { aiCommand, makeProfile, STYLES } from '../src/sim/ai.js';
 
-function loadSim() {
-  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-  const a = html.indexOf("'use strict';"), b = html.indexOf('// 4. PRÉSENTATION');
-  assert.ok(a > 0 && b > a, 'sections de simulation introuvables dans index.html');
-  const src = html.slice(a, b) + '\nreturn { newMatch, step, aiCommand, makeProfile, hashState, NOCMD, STYLES, canUtchari };';
-  return new Function('document', src)({ getElementById: () => null });
-}
-const D = loadSim();
+const D = { newMatch, step, aiCommand, makeProfile, hashState, NOCMD, STYLES, canUtchari };
 
 function playAI(seed, a, b, win = 3, maxSec = 600) {
   const S = D.newMatch({ seed, win, ai: [D.makeProfile(a, 0.6), D.makeProfile(b, 0.6)] });
