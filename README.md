@@ -129,8 +129,15 @@ Les tests extraient la simulation directement de `index.html` et vérifient le
 déterminisme, le faux départ, le tachiai, le rétrécissement du cercle, que
 chaque IA termine ses matchs, et les deux propriétés dont dépend le jeu en
 ligne : revenir à un état copié puis resimuler redonne la même partie, et un
-état passé par JSON (la synchro de l'hôte) continue la même partie. Ils tournent aussi avant chaque déploiement
-GitHub Pages (`.github/workflows/deploy.yml`).
+état passé par JSON (la synchro de l'hôte) continue la même partie. Ils tournent aussi à chaque push
+(`.github/workflows/tests.yml`).
+
+## Publication
+
+GitHub Pages publie la branche `main` telle quelle (Settings → Pages →
+Deploy from a branch → `main`, `/ (root)`) : le jeu est sur
+https://ikono85.github.io/Game/. Le fichier `.nojekyll` évite à GitHub de
+passer les fichiers dans Jekyll.
 
 ## Feuille de route
 
