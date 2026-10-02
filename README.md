@@ -51,6 +51,15 @@ d'environ 150 ms de ping, les corrections deviennent visibles.
 
 ## Commandes
 
+Toutes les touches se changent dans le menu **Commandes** : clique sur une
+touche (ou sur **+** pour en ajouter une seconde), puis appuie sur la nouvelle.
+Ça marche pour le clavier des deux joueurs et pour les boutons de manette
+(Dash, Garde, Feinte). Une touche déjà prise ailleurs est échangée avec
+l'ancienne ; Échap reste la pause. Les réglages sont sauvegardés dans le
+navigateur, et « Touches par défaut » remet tout comme au départ.
+
+Touches par défaut :
+
 | Action | Rouge | Bleu | Manette |
 |---|---|---|---|
 | Bouger | Z Q S D (W A S D en QWERTY) | Flèches | Stick / croix |

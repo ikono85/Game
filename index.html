@@ -390,6 +390,39 @@ body.replaying .hud, body.replaying .touch { visibility: hidden; }
 .net-msg { margin: 0; min-height: 1.3em; font-size: 15px; font-weight: 700; color: var(--m-shu); }
 .net-msg:empty { display: none; }
 @media (max-width: 480px) { .center .net-info { font-size: 10px; } }
+/* ---------- Commandes modifiables ---------- */
+.bind-status { margin: 0; min-height: 1.5em; font-size: 15px; font-weight: 700; line-height: 1.45; color: var(--m-ink); }
+.bind-remove {
+  margin-left: 4px; padding: 3px 10px; cursor: pointer;
+  font: 700 13px var(--font-body); color: var(--m-shu); background: transparent; border: 1px solid var(--m-shu); border-radius: 4px;
+}
+.bind-remove:hover, .bind-remove:focus-visible { background: var(--m-shu); color: #fff4e2; outline: none; }
+.binds { table-layout: fixed; }
+.binds th:nth-child(1) { width: 27%; } .binds th:nth-child(2) { width: 20%; }
+.binds th:nth-child(3), .binds th:nth-child(4) { width: 26.5%; }
+.binds td { padding-top: 6px; padding-bottom: 6px; overflow-wrap: anywhere; }
+.kchip {
+  display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;
+  min-width: 34px; min-height: 32px; margin: 2px 5px 2px 0; padding: 3px 9px; cursor: pointer;
+  font: 700 13px/1.1 var(--font-body); color: var(--m-ink);
+  background: #f6ead0; border: 1px solid #8d7350; border-bottom-width: 3px; border-radius: 4px;
+}
+.kchip:hover { background: #fff6e2; border-color: var(--m-ink); }
+.kchip:focus-visible { outline: 3px solid var(--m-shu); outline-offset: 2px; }
+.kchip.add { background: transparent; border: 1px dashed rgba(28, 19, 13, .45); color: var(--m-ink-soft); font-size: 16px; }
+.kchip.add:hover { border-style: solid; color: var(--m-ink); }
+.kchip.padchip { padding: 2px 3px; background: rgba(255, 246, 225, .35); border-color: rgba(28, 19, 13, .3); }
+.kchip.padchip .pad-btn { margin: 0; }
+.kchip.listening { background: var(--m-shu); border-color: var(--m-shu); color: #fff4e2; animation: listen 1s ease-in-out infinite; }
+@keyframes listen { 50% { box-shadow: 0 0 0 5px rgba(196, 54, 31, .22); } }
+@media (prefers-reduced-motion: reduce) { .kchip.listening { animation: none; } }
+.binds tr.fixed kbd { opacity: .75; }
+@media (max-width: 720px) {
+  .kchip { min-height: 30px; min-width: 30px; padding: 2px 6px; margin-right: 3px; }
+  .binds td:first-child span { display: none; }       /* les explications restent dans les notes */
+  .binds th:nth-child(1) { width: 19%; } .binds th:nth-child(2) { width: 25%; }
+  .binds th:nth-child(3) { width: 30%; } .binds th:nth-child(4) { width: 26%; }
+}
 </style>
 
 <header class="hud" id="hud">
@@ -1483,12 +1516,12 @@ function drawText(text, color, size = 84, y = C - 250) {
 
 /** Bouton de manette dessiné dans l'arène (coordonnées du monde). */
 function drawPadGlyph(x, y, btn, r = 24) {
-  const [t, c] = PAD_GLYPHS[G.padFamily || 'xbox'][btn];
+  const [t, c] = PAD_GLYPHS[G.padFamily || 'xbox'][btn] || ['?'];
   ctx.fillStyle = '#2a221c'; ctx.beginPath();
   if (t.length > 1) { ctx.roundRect(x - r * 1.3, y - r, r * 2.6, r * 2, r * 0.5); } else ctx.arc(x, y, r, 0, TAU);
   ctx.fill();
   ctx.fillStyle = c || '#f4ecd8';
-  ctx.font = `700 ${r * 1.15}px "Zen Kaku Gothic New", sans-serif`;
+  ctx.font = `700 ${t.length > 3 ? r * 0.75 : t.length > 2 ? r * 0.9 : r * 1.15}px "Zen Kaku Gothic New", sans-serif`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText(t, x, y + 1);
 }
@@ -1528,13 +1561,13 @@ function drawUtchariPrompt(S, alpha) {
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.font = '400 30px "Dela Gothic One", "Arial Black", sans-serif';
     const pad = padForPlayer(keySlot(i));
-    const key = pad ? null : (keySlot(i) === 0 ? 'Espace' : 'Entrée');
+    const key = pad ? null : keyName(BIND[keySlot(i)].dash[0]);
     const label = key ? `Utchari : ${key}` : 'Utchari';
     const w = ctx.measureText(label).width + (pad ? 56 : 0);
     ctx.fillStyle = 'rgba(28,19,13,.82)';
     ctx.beginPath(); ctx.roundRect(-w / 2 - 14, -24, w + 28, 48, 10); ctx.fill();
     ctx.fillStyle = '#ffd166'; ctx.fillText(label, pad ? -24 : 0, 1);
-    if (pad) drawPadGlyph(w / 2 - 20, 0, 0, 18);
+    if (pad) drawPadGlyph(w / 2 - 20, 0, PAD.dash[0], 18);
     ctx.restore();
   }
 }
@@ -1548,13 +1581,13 @@ function drawCounterPrompt(S, i, alpha) {
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.font = '400 30px "Dela Gothic One", "Arial Black", sans-serif';
   const pad = padForPlayer(keySlot(i));
-  const key = pad ? null : (keySlot(i) === 0 ? keyLabels.KeyE : 'Maj droite');
+  const key = pad ? null : keyName(BIND[keySlot(i)].guard[0]);
   const label = key ? `Hanches basses : ${key}` : 'Hanches basses';
   const w = ctx.measureText(label).width + (pad ? 56 : 0);
   ctx.fillStyle = 'rgba(28,19,13,.88)';
   ctx.beginPath(); ctx.roundRect(-w / 2 - 14, -26, w + 28, 58, 10); ctx.fill();
   ctx.fillStyle = '#ff9a7a'; ctx.fillText(label, pad ? -24 : 0, -2);
-  if (pad) drawPadGlyph(w / 2 - 20, -2, 1, 18);
+  if (pad) drawPadGlyph(w / 2 - 20, -2, PAD.guard[0], 18);
   ctx.fillStyle = 'rgba(255,154,122,.25)'; ctx.fillRect(-w / 2, 20, w, 6);
   ctx.fillStyle = '#ff9a7a'; ctx.fillRect(-w / 2, 20, w * left, 6);
   ctx.restore();
@@ -1571,9 +1604,9 @@ function drawStartHint(S) {
     const w = ctx.measureText(label).width;
     ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillText(label, C - 26 + 2, y + 2);
     ctx.fillStyle = '#efe3c8'; ctx.fillText(label, C - 26, y);
-    drawPadGlyph(C - 26 + w / 2 + 34, y, 0, 20);
+    drawPadGlyph(C - 26 + w / 2 + 34, y, PAD.dash[0], 20);
   } else {
-    const label = G.mode === 'versus' ? 'Dash au signal : Espace et Entrée' : 'Dash au signal : Espace';
+    const label = G.mode === 'versus' ? `Dash au signal : ${keyName(BIND[0].dash[0])} et ${keyName(BIND[1].dash[0])}` : `Dash au signal : ${keyName(BIND[0].dash[0])}`;
     ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillText(label, C + 2, y + 2);
     ctx.fillStyle = '#efe3c8'; ctx.fillText(label, C, y);
   }
@@ -1724,12 +1757,76 @@ function hud() {
 // ---------------------------------------------------------------------
 const held = new Set();
 const latch = [{ dash: false, feint: false }, { dash: false, feint: false }];
-const BIND = [
+// Touches par défaut ; le joueur peut tout changer dans « Commandes » (sauvegardé en local)
+const ACTIONS = ['up', 'down', 'left', 'right', 'dash', 'guard', 'feint'];
+const DEFAULT_BIND = [
   { up: ['KeyW'], down: ['KeyS'], left: ['KeyA'], right: ['KeyD'], dash: ['Space'], guard: ['KeyE'], feint: ['KeyF'] },
   { up: ['ArrowUp'], down: ['ArrowDown'], left: ['ArrowLeft'], right: ['ArrowRight'],
     dash: ['Enter', 'NumpadEnter'], guard: ['ShiftRight', 'Numpad0'], feint: ['ControlRight', 'Numpad1'] },
 ];
-const ALL_GAME_CODES = new Set(BIND.flatMap(b => Object.values(b).flat()));
+// Manette : boutons par action (position standard : 0 bas, 1 droite, 2 gauche, 3 haut, 4-7 gâchettes)
+const PAD_ACTIONS = ['dash', 'guard', 'feint'];
+const DEFAULT_PAD = { dash: [0], guard: [1, 4, 5, 6, 7], feint: [2, 3] };
+const KEYS_MAX = 2, PAD_MAX = 5;
+const PAD_BINDABLE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11];      // pas Start (pause) ni la croix (déplacement)
+const RESERVED_CODES = new Set(['Escape']);
+let BIND = structuredClone(DEFAULT_BIND), PAD = structuredClone(DEFAULT_PAD);
+let ALL_GAME_CODES = new Set();
+/** Recharge les touches sauvegardées (une action invalide ou vide reprend sa valeur par défaut). */
+function loadBinds() {
+  const b = save.binds || {};
+  const okKey = c => typeof c === 'string' && c.length > 0 && c.length < 40 && !RESERVED_CODES.has(c);
+  BIND = DEFAULT_BIND.map((def, i) => Object.fromEntries(ACTIONS.map(a => {
+    const v = b.keys && b.keys[i] && b.keys[i][a];
+    const list = Array.isArray(v) ? [...new Set(v.filter(okKey))].slice(0, KEYS_MAX) : [];
+    return [a, list.length ? list : def[a].slice()];
+  })));
+  PAD = Object.fromEntries(PAD_ACTIONS.map(a => {
+    const v = b.pad && b.pad[a];
+    const list = Array.isArray(v) ? [...new Set(v.filter(k => PAD_BINDABLE.includes(k)))].slice(0, PAD_MAX) : [];
+    return [a, list.length ? list : DEFAULT_PAD[a].slice()];
+  }));
+  ALL_GAME_CODES = new Set(BIND.flatMap(x => Object.values(x).flat()));
+}
+function storeBinds() {
+  save.binds = { keys: BIND, pad: PAD };
+  persist();
+  ALL_GAME_CODES = new Set(BIND.flatMap(x => Object.values(x).flat()));
+  held.clear();
+}
+// Noms des touches. Pour les lettres, on retient ce que le clavier a réellement tapé (AZERTY, QWERTZ…).
+const KEY_NAMES = {
+  Space: 'Espace', Enter: 'Entrée', NumpadEnter: 'Entrée pavé', Tab: 'Tab', Backspace: 'Retour arr.', CapsLock: 'Verr. maj',
+  ShiftLeft: 'Maj gauche', ShiftRight: 'Maj droite', ControlLeft: 'Ctrl gauche', ControlRight: 'Ctrl droit',
+  AltLeft: 'Alt', AltRight: 'Alt Gr', MetaLeft: 'Méta', MetaRight: 'Méta droit', ContextMenu: 'Menu',
+  ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→',
+  Insert: 'Inser', Delete: 'Suppr', Home: 'Début', End: 'Fin', PageUp: 'Page préc.', PageDown: 'Page suiv.',
+  NumpadAdd: '+ pavé', NumpadSubtract: '− pavé', NumpadMultiply: '× pavé', NumpadDivide: '÷ pavé', NumpadDecimal: ', pavé',
+};
+const AZERTY_GUESS = { KeyW: 'Z', KeyA: 'Q', KeyQ: 'A', KeyZ: 'W', KeyM: ',', Semicolon: 'M' };   // sans info du navigateur
+let layoutMap = null;
+if (navigator.keyboard && navigator.keyboard.getLayoutMap) {
+  navigator.keyboard.getLayoutMap().then(m => { layoutMap = m; }).catch(() => {});
+}
+function keyName(code) {
+  if (!code) return '';
+  if (KEY_NAMES[code]) return KEY_NAMES[code];
+  const seen = save.keyNames && save.keyNames[code];
+  if (seen) return seen;
+  const lm = layoutMap && layoutMap.get(code);
+  if (lm && lm.trim()) return lm.toUpperCase();
+  if (AZERTY_GUESS[code]) return AZERTY_GUESS[code];
+  let m;
+  if ((m = /^Key([A-Z])$/.exec(code))) return m[1];
+  if ((m = /^(?:Digit)(\d)$/.exec(code))) return m[1];
+  if ((m = /^Numpad(\d)$/.exec(code))) return m[1] + ' pavé';
+  return code;
+}
+/** Retient le nom affiché d'une touche, d'après le caractère qu'elle produit. */
+function rememberKeyName(e) {
+  if (KEY_NAMES[e.code] || !e.key || e.key.length !== 1 || e.key === ' ') return;
+  save.keyNames = Object.assign({}, save.keyNames, { [e.code]: e.key.toUpperCase() });
+}
 const anyHeld = codes => codes.some(c => held.has(c));
 const solo = () => G.mode === 'ai' || G.mode === 'career' || G.mode === 'online';
 // En solo, les deux jeux de touches contrôlent le joueur rouge.
@@ -1738,11 +1835,12 @@ const inPlay = () => G.screen === 'match' && !G.paused && ov.hidden && G.S && G.
 
 addEventListener('keydown', e => {
   Sound.init();
+  if (G.capture) { captureKey(e); return; }               // « Commandes » : on attend la nouvelle touche
   if (G.replay) { e.preventDefault(); if (!e.repeat) endReplay(); return; }
   const tag = e.target && e.target.tagName;
   if ((tag === 'INPUT' || tag === 'TEXTAREA') && e.code !== 'Escape') return;   // on tape un nom ou un code
   if (e.code === 'Escape') { if (!ov.hidden && G.back) G.back(); else togglePause(); return; }
-  if (e.code === 'KeyM' && !e.repeat) { toggleMute(); }
+  if (e.code === 'KeyM' && !e.repeat && !(inPlay() && ALL_GAME_CODES.has('KeyM'))) toggleMute();   // sauf si M sert au jeu
   if (!inPlay()) return;                     // menus : les touches gardent leur rôle normal
   if (ALL_GAME_CODES.has(e.code)) e.preventDefault();
   held.add(e.code);
@@ -1752,7 +1850,10 @@ addEventListener('keydown', e => {
     if (b.feint.includes(e.code)) latch[i].feint = true;
   }
 });
-addEventListener('keyup', e => { held.delete(e.code); });
+addEventListener('keyup', e => {
+  held.delete(e.code);
+  if (G.swallowUp === e.code) { e.preventDefault(); G.swallowUp = null; }   // Espace qui vient d'être choisie : pas de clic
+});
 addEventListener('blur', () => { held.clear(); autoPause(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden) autoPause(); });
 
@@ -1777,13 +1878,13 @@ function padState(p) {
   let x = p.axes[0] || 0, y = p.axes[1] || 0;
   if (Math.hypot(x, y) < 0.25) { x = 0; y = 0; }
   if (btn(p, 14)) x = -1; if (btn(p, 15)) x = 1; if (btn(p, 12)) y = -1; if (btn(p, 13)) y = 1;
-  return { x, y, guard: [1, 4, 5, 6, 7].some(k => btn(p, k)) };
+  return { x, y, guard: PAD.guard.some(k => btn(p, k)) };
 }
 // Boutons affichés selon la famille de manette (position standard : 0 bas, 1 droite, 2 gauche, 3 haut)
 const PAD_GLYPHS = {
-  xbox: { 0: ['A', '#7cc35f'], 1: ['B', '#ef6a55'], 2: ['X', '#5d9bf0'], 3: ['Y', '#f0c64b'], 4: ['LB'], 5: ['RB'], 6: ['LT'], 7: ['RT'], 9: ['Menu'] },
-  ps: { 0: ['✕', '#9db4ff'], 1: ['○', '#ff8a8a'], 2: ['□', '#f1a3e0'], 3: ['△', '#6fe0c4'], 4: ['L1'], 5: ['R1'], 6: ['L2'], 7: ['R2'], 9: ['Options'] },
-  nin: { 0: ['B'], 1: ['A'], 2: ['Y'], 3: ['X'], 4: ['L'], 5: ['R'], 6: ['ZL'], 7: ['ZR'], 9: ['+'] },
+  xbox: { 0: ['A', '#7cc35f'], 1: ['B', '#ef6a55'], 2: ['X', '#5d9bf0'], 3: ['Y', '#f0c64b'], 4: ['LB'], 5: ['RB'], 6: ['LT'], 7: ['RT'], 8: ['View'], 9: ['Menu'], 10: ['LS'], 11: ['RS'] },
+  ps: { 0: ['✕', '#9db4ff'], 1: ['○', '#ff8a8a'], 2: ['□', '#f1a3e0'], 3: ['△', '#6fe0c4'], 4: ['L1'], 5: ['R1'], 6: ['L2'], 7: ['R2'], 8: ['Share'], 9: ['Options'], 10: ['L3'], 11: ['R3'] },
+  nin: { 0: ['B'], 1: ['A'], 2: ['Y'], 3: ['X'], 4: ['L'], 5: ['R'], 6: ['ZL'], 7: ['ZR'], 8: ['−'], 9: ['+'], 10: ['LS'], 11: ['RS'] },
 };
 function padFamily(p) {
   const id = (p.id || '').toLowerCase();
@@ -1815,6 +1916,7 @@ function pollPads() {
   const ps = pads();
   syncPadFamily(ps);
   if (!ps.length) return;
+  if (G.capture) { capturePad(ps); return; }        // « Commandes » : on attend le nouveau bouton
   if (G.replay) {                                   // n'importe quel bouton principal passe le ralenti
     for (const p of ps) if (padEdge(p, 0) || padEdge(p, 1) || padEdge(p, 9)) { endReplay(); return; }
     return;
@@ -1834,8 +1936,9 @@ function pollPads() {
   if (inPlay()) for (let i = 0; i < 2; i++) {
     const p = padForPlayer(i);
     if (!p) continue;
-    if (padEdge(p, 0)) latch[i].dash = true;
-    if (padEdge(p, 2) || padEdge(p, 3)) latch[i].feint = true;
+    const edge = list => list.map(k => padEdge(p, k)).some(Boolean);   // tous évalués : l'état « avant » reste à jour
+    if (edge(PAD.dash)) latch[i].dash = true;
+    if (edge(PAD.feint)) latch[i].feint = true;
   }
 }
 function moveFocus(dir) {
@@ -1899,6 +2002,7 @@ const store = {
 const SAVE_KEY = 'dohyo.v2.save';
 const save = Object.assign({ skin: 'rouge', muted: false, career: null }, store.get(SAVE_KEY, {}));
 const persist = () => store.set(SAVE_KEY, save);
+loadBinds();
 
 const RANKS = [
   { name: 'Jonokuchi', kanji: '序ノ口' }, { name: 'Jonidan', kanji: '序二段' }, { name: 'Sandanme', kanji: '三段目' },
@@ -1952,7 +2056,7 @@ function el(tag, cls, text) {
  * kanji : la grande colonne verticale de gauche ; seal : 'shu' | 'ink' | 'blue' pour un tampon de résultat.
  */
 function showScreen({ kanji, title, lead, body = [], focus, seal, back = null }) {
-  G.back = back;
+  G.back = back; G.capture = null;
   const k = el('div', 'scr-kanji');
   k.setAttribute('aria-hidden', 'true');
   if (seal) { k.classList.add('seal', seal); k.textContent = kanji; }
@@ -2045,45 +2149,171 @@ function aiSelect() {
   });
 }
 
+// --- Commandes : chaque touche se change d'un clic (clavier pour les deux joueurs, boutons de manette) ---
+const ACTION_LABELS = {
+  up: ['Haut', ''], down: ['Bas', ''], left: ['Gauche', ''], right: ['Droite', ''],
+  dash: ['Dash', 'Coup d’épaule. Au bord : utchari'], guard: ['Garde', 'Maintenir. Contre l’utchari : hanches basses'], feint: ['Feinte', 'Faux dash'],
+};
+const SIDE = ['Rouge', 'Bleu'];
+const padName = k => (PAD_GLYPHS[G.padFamily || 'xbox'][k] || ['?'])[0];
+const bindWho = (a, pl) => `« ${ACTION_LABELS[a][0]} » (${pl == null ? 'manette' : SIDE[pl]})`;
+const capList = c => (c.scope === 'pad' ? PAD[c.a] : BIND[c.pl][c.a]);
+const capLabel = (c, v) => (c.scope === 'pad' ? padName(v) : keyName(v));
+
 function controlsCard(backFn) {
-  const L = keyLabels;
-  const rows = [
-    ['Bouger', '', [L.KeyW, L.KeyA, L.KeyS, L.KeyD], ['↑', '←', '↓', '→'], ['Stick ou croix']],
-    ['Dash', "Coup d'épaule", ['Espace'], ['Entrée'], [0]],
-    ['Garde', 'Maintenir, bloque de face', [L.KeyE], ['Maj droite', '0 pavé'], [1, 5]],
-    ['Feinte', 'Faux dash', [L.KeyF], ['Ctrl droit', '1 pavé'], [2]],
-    ['Tenir au bord', 'Sur la paille, pousse vers le centre', [{ t: 'Vers le centre' }], [{ t: 'Vers le centre' }], ['Vers le centre']],
-    ['Utchari', 'Au bord, quand il te pousse', ['Espace'], ['Entrée'], [0]],
-    ['Hanches basses', 'Quand il tente l\u2019utchari sur toi', [L.KeyE], ['Maj droite'], [1]],
-    ['Pause', '', ['Échap'], ['Échap'], [9]],
-  ];
-  const t = el('table', 'controls');
-  const head = el('tr');
-  head.append(el('th'), el('th', 'e', 'Rouge'), el('th', 'w', 'Bleu'), el('th', 'pad', 'Manette'));
-  t.append(head);
-  rows.forEach(([name, hint, a, b, pad]) => {
-    const tr = el('tr');
-    const td0 = el('td', null, name);
-    if (hint) td0.append(el('span', null, hint));
-    const k = keys => { const td = el('td'); keys.forEach(x => td.append(typeof x === 'object' ? el('span', 'pad-txt', x.t + ' ') : el('kbd', null, x))); return td; };
-    const pd = el('td', 'pad');
-    pad.forEach(x => pd.append(typeof x === 'number' ? padBadge(x) : el('span', 'pad-txt', x + ' ')));
-    tr.append(td0, k(a), k(b), pd);
-    t.append(tr);
-  });
+  const status = el('p', 'bind-status', 'Clique sur une touche pour la changer, ou sur + pour en ajouter une.');
+  status.setAttribute('aria-live', 'polite');
+  const table = el('table', 'controls binds');
+  const ui = { status, render: null };
+  const chip = (scope, pl, a, i, v) => {
+    const b = el('button', 'kchip' + (v == null ? ' add' : '') + (scope === 'pad' ? ' padchip' : ''));
+    b.type = 'button';
+    b.dataset.k = `${scope}:${pl}:${a}:${i}`;
+    const who = scope === 'pad' ? 'manette' : SIDE[pl];
+    if (v == null) { b.textContent = '+'; b.setAttribute('aria-label', `Ajouter une touche : ${ACTION_LABELS[a][0]}, ${who}`); }
+    else {
+      if (scope === 'pad') b.append(padBadge(v)); else b.textContent = keyName(v);
+      b.setAttribute('aria-label', `${ACTION_LABELS[a][0]}, ${who} : ${scope === 'pad' ? padName(v) : keyName(v)}. Changer`);
+    }
+    b.addEventListener('click', () => { Sound.init(); Sound.click(); startCapture({ scope, pl, a, i, el: b, ui }); });
+    return b;
+  };
+  const cell = (scope, pl, a) => {
+    const td = el('td', scope === 'pad' ? 'pad' : null);
+    const list = scope === 'pad' ? PAD[a] : BIND[pl][a];
+    list.forEach((v, i) => td.append(chip(scope, pl, a, i, v)));
+    if (list.length < (scope === 'pad' ? PAD_MAX : KEYS_MAX)) td.append(chip(scope, pl, a, list.length, null));
+    return td;
+  };
+  ui.render = focusK => {
+    const head = el('tr');
+    head.append(el('th'), el('th', 'e', 'Rouge'), el('th', 'w', 'Bleu'), el('th', 'pad', 'Manette'));
+    const rows = [head];
+    for (const a of ACTIONS) {
+      const tr = el('tr');
+      const td0 = el('td', null, ACTION_LABELS[a][0]);
+      if (ACTION_LABELS[a][1]) td0.append(el('span', null, ACTION_LABELS[a][1]));
+      tr.append(td0, cell('key', 0, a), cell('key', 1, a));
+      if (a === 'up') { const pd = el('td', 'pad'); pd.rowSpan = 4; pd.append(el('span', 'pad-txt', 'Stick ou croix')); tr.append(pd); }
+      else if (PAD_ACTIONS.includes(a)) tr.append(cell('pad', null, a));
+      rows.push(tr);
+    }
+    const tr = el('tr', 'fixed');
+    const pd = el('td', 'pad'); pd.append(padBadge(9));
+    tr.append(el('td', null, 'Pause'), el('td'), el('td'), pd);
+    tr.children[1].append(el('kbd', null, 'Échap')); tr.children[2].append(el('kbd', null, 'Échap'));
+    rows.push(tr);
+    table.replaceChildren(...rows);
+    if (focusK) {
+      const [sc, pl, a] = focusK.split(':');
+      const f = table.querySelector(`[data-k="${focusK}"]`) || table.querySelector(`[data-k^="${sc}:${pl}:${a}:"]`);
+      if (f) f.focus({ focusVisible: true, preventScroll: true });
+    }
+  };
+  ui.render();
+  let armed = false;
+  const reset = mbtn('Touches par défaut', 'Clavier et manette', false, () => {
+    if (!armed) { armed = true; reset.firstChild.textContent = 'Tout remettre ? Clique encore'; reset.classList.add('danger'); return; }
+    BIND = structuredClone(DEFAULT_BIND); PAD = structuredClone(DEFAULT_PAD); storeBinds();
+    armed = false; reset.firstChild.textContent = 'Touches par défaut'; reset.classList.remove('danger');
+    ui.render(); status.textContent = 'Touches remises par défaut.';
+  }, 'quiet');
   showScreen({
     kanji: '指南',
     title: 'Commandes',
     body: [
-      t,
-      el('p', 'note', "Les boutons s'adaptent à ta manette (Xbox, PlayStation ou Nintendo) dès qu'elle est branchée. Toutes les gâchettes servent aussi à la garde. Contre l'IA et en ligne, les deux jeux de touches contrôlent ton lutteur."),
+      status, table,
+      el('p', 'note', "Une touche déjà prise ailleurs est échangée avec l'ancienne. Échap reste la pause. Les boutons s'adaptent à ta manette (Xbox, PlayStation ou Nintendo) dès qu'elle est branchée. Contre l'IA et en ligne, les deux jeux de touches contrôlent ton lutteur."),
       el('p', 'note', "Au bord du cercle, pousse vers le centre pour tenir : tes talons se plantent dans la paille, mais ta jauge de garde se vide, et quand elle est vide tu glisses. Et quand l'adversaire te pousse au bord, « Utchari » s'affiche au-dessus de toi : appuie sur Dash, tu pivotes et c'est lui qui sort. La direction tenue choisit le sens du pivot. Il ne marche pas s'il pousse garde levée. Et si c'est toi qu'on soulève, garde au bon moment (« Hanches basses ») : l'utchari échoue et c'est lui qui reste déséquilibré au bord."),
-      el('p', 'note', "Départ : attends « Hakkeyoi ! ». Un dash juste après le signal pousse 30 % plus fort. Un dash avant le signal est un faux départ et te fige un instant. Touche M pour couper le son."),
-      list(mbtn('Retour', null, false, backFn, 'quiet')),
+      el('p', 'note', "Départ : attends « Hakkeyoi ! ». Un dash juste après le signal pousse 30 % plus fort. Un dash avant le signal est un faux départ et te fige un instant. Touche M pour couper le son (sauf si tu l'utilises pour jouer)."),
+      list(reset, mbtn('Retour', null, false, backFn, 'quiet')),
     ],
+    focus: '.kchip',
     back: backFn,
   });
 }
+
+function startCapture(c) {
+  if (G.capture) endCapture(null);
+  G.capture = c;
+  c.el.classList.add('listening');
+  c.el.replaceChildren(document.createTextNode('…'));
+  const list = capList(c);
+  const what = c.scope === 'pad'
+    ? (pads().length ? 'appuie sur un bouton de la manette' : 'branche une manette et appuie sur un bouton')
+    : 'appuie sur la nouvelle touche';
+  const msg = [document.createTextNode(`${bindWho(c.a, c.scope === 'pad' ? null : c.pl)} : ${what}. Échap pour annuler.`)];
+  if (c.i < list.length && list.length > 1) {
+    const rm = el('button', 'bind-remove', 'Retirer');
+    rm.type = 'button';
+    rm.addEventListener('click', () => removeBinding());
+    msg.push(document.createTextNode(' '), rm);
+  }
+  c.ui.status.replaceChildren(...msg);
+  // état actuel des boutons : celui qu'on vient d'appuyer pour ouvrir la capture ne compte pas
+  for (const p of pads()) for (const k of [...PAD_BINDABLE, 9]) padPrev[p.index + ':' + k] = btn(p, k);
+}
+/** Fin de capture : on redessine le tableau (focus sur la même case) et on affiche le message. */
+function endCapture(msg) {
+  const c = G.capture;
+  if (!c) return;
+  G.capture = null;
+  c.ui.render(c.el.dataset.k);
+  if (msg != null) c.ui.status.textContent = msg;
+}
+function captureKey(e) {
+  e.preventDefault(); e.stopPropagation();
+  const c = G.capture;
+  if (e.repeat) return;
+  if (e.code === 'Escape') { endCapture('Annulé.'); return; }
+  if (c.scope === 'pad') return;                       // capture manette : le clavier ne sert qu'à annuler
+  rememberKeyName(e);
+  G.swallowUp = e.code;                                // Espace ou Entrée ne doivent pas recliquer la case
+  assignBinding(e.code);
+}
+function capturePad(ps) {
+  const c = G.capture;
+  for (const p of ps) {
+    if (padEdge(p, 9)) { endCapture('Annulé.'); return; }
+    if (c.scope !== 'pad') { if (padEdge(p, 1)) { endCapture('Annulé.'); return; } continue; }   // capture clavier : B annule
+    const hit = PAD_BINDABLE.filter(k => padEdge(p, k));
+    if (hit.length) { assignBinding(hit[0]); return; }
+  }
+}
+/** Affecte v à la case en cours. Si v sert déjà ailleurs, l'autre action reçoit l'ancienne touche (échange). */
+function assignBinding(v) {
+  const c = G.capture, list = capList(c), old = list[c.i];
+  const me = bindWho(c.a, c.scope === 'pad' ? null : c.pl);
+  if (old === v || (old === undefined && list.includes(v))) { endCapture(`${me} : ${capLabel(c, v)}, rien ne change.`); return; }
+  const owners = [];
+  if (c.scope === 'pad') { for (const a of PAD_ACTIONS) PAD[a].forEach((x, j) => { if (x === v) owners.push([PAD[a], j, a, null]); }); }
+  else for (let pl = 0; pl < 2; pl++) for (const a of ACTIONS) BIND[pl][a].forEach((x, j) => { if (x === v) owners.push([BIND[pl][a], j, a, pl]); });
+  let note = '';
+  for (const [ol, j, a, pl] of owners) {
+    if (old !== undefined) { ol[j] = old; note = ` ${capLabel(c, v)} servait à ${bindWho(a, pl)}, qui prend ${capLabel(c, old)} à la place.`; }
+    else if (ol.length > 1) { ol.splice(j, 1); note = ` ${capLabel(c, v)} ne sert plus à ${bindWho(a, pl)}.`; }
+    else { endCapture(`${capLabel(c, v)} est la seule touche de ${bindWho(a, pl)} : change d'abord celle-là.`); return; }
+  }
+  if (c.i < list.length) list[c.i] = v; else list.push(v);
+  storeBinds();
+  Sound.click();
+  endCapture(`${me} : ${capLabel(c, v)}.${note}`);
+}
+function removeBinding() {
+  const c = G.capture;
+  if (!c) return;
+  const list = capList(c);
+  if (c.i >= list.length || list.length < 2) return;
+  const [v] = list.splice(c.i, 1);
+  storeBinds();
+  c.el.dataset.k = `${c.scope}:${c.pl}:${c.a}:0`;
+  endCapture(`${capLabel(c, v)} retirée de ${bindWho(c.a, c.scope === 'pad' ? null : c.pl)}.`);
+}
+// un clic ailleurs annule la capture
+addEventListener('pointerdown', e => {
+  const c = G.capture;
+  if (c && !c.el.contains(e.target) && !c.ui.status.contains(e.target)) endCapture('Annulé.');
+}, true);
 
 function wardrobe(backFn) {
   const best = save.career ? save.career.best : 0;
@@ -2315,13 +2545,6 @@ $('muteBtn').addEventListener('click', () => { Sound.init(); toggleMute(); });
 Sound.muted = save.muted; syncMute();
 addEventListener('pointerdown', () => Sound.init(), { once: true });
 
-// Noms des touches selon la disposition du clavier (AZERTY affichera Z Q S D)
-const keyLabels = { KeyW: 'Z', KeyA: 'Q', KeyS: 'S', KeyD: 'D', KeyE: 'E', KeyF: 'F' };
-if (navigator.keyboard && navigator.keyboard.getLayoutMap) {
-  navigator.keyboard.getLayoutMap().then(m => {
-    for (const k of Object.keys(keyLabels)) { const v = m.get(k); if (v) keyLabels[k] = v.toUpperCase(); }
-  }).catch(() => {});
-}
 
 // ---------------------------------------------------------------------
 // 7. EN LIGNE — duel entre deux navigateurs, netcode à rollback
@@ -3241,7 +3464,7 @@ MAP.addEventListener('load', () => buildBackground());
 addEventListener('resize', fit);
 
 // Accès pour les tests (déterminisme, IA contre IA)
-window.__dohyo = { newMatch, step, aiCommand, makeProfile, hashState, STYLES, NOCMD, G, careerBoutResult, startMatch, save, render, utchariReady, canUtchari, packIn, unpackIn };
+window.__dohyo = { newMatch, step, aiCommand, makeProfile, hashState, STYLES, NOCMD, G, careerBoutResult, startMatch, save, render, utchariReady, canUtchari, packIn, unpackIn, binds: () => ({ BIND, PAD }) };
 
 updateScore();
 menu();
