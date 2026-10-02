@@ -157,13 +157,15 @@ Dans le dossier du projet :
 
 ```bash
 npm install        # une seule fois : installe esbuild et PeerJS
-npm run dev        # reconstruit index.html à chaque modification de src/ ou assets/
+npm run dev        # ouvre le jeu dans le navigateur et le recharge à chaque modification
 npm run build      # reconstruit index.html une fois
 npm test           # tests de la simulation
 ```
 
-Avec `npm run dev`, modifie un fichier de `src/`, enregistre, puis recharge
-`index.html` dans le navigateur. Pour changer un sprite, remplace l'image
+`npm run dev` ouvre le jeu sur http://localhost:5173. Modifie un fichier de
+`src/` ou `assets/` et enregistre : `index.html` est reconstruit et la page se
+recharge toute seule. Si le code a une erreur, elle s'affiche dans la fenêtre
+de commande et la page garde la dernière version qui marchait. Pour changer un sprite, remplace l'image
 dans `assets/` (même taille et même disposition : 240 px par image, une rangée
 par animation).
 
