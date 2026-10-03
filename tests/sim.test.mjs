@@ -54,6 +54,26 @@ test('tachiai : un dash juste après le signal pousse plus fort', () => {
   assert.ok(run(5) > run(120) * 1.15);
 });
 
+/** Un dash lancé à « distance » de l'adversaire, qui garde de face sans bouger. Bloqué ? */
+function dashIntoGuard(distance) {
+  const S = D.newMatch({ seed: 1, win: 1, ai: [null, null] });
+  S.phase = 'play'; S.roundT = 2;
+  S.p[0].x = S.p[0].px = 704 - distance / 2; S.p[1].x = S.p[1].px = 704 + distance / 2;
+  S.p[0].face = 0; S.p[1].face = Math.PI;
+  let blocked = false;
+  for (let n = 0; n < 120; n++) {
+    D.step(S, [{ ...D.NOCMD, mx: 1, dash: n === 0 }, { ...D.NOCMD, guard: true }]);
+    if (S.events.some(e => e.type === 'block' && e.who === 1)) blocked = true;
+    S.events.length = 0;
+  }
+  return blocked;
+}
+
+test('garde : une charge lancée de loin reste bloquable si elle arrive encore lancée', () => {
+  for (const d of [120, 200, 260]) assert.ok(dashIntoGuard(d), `dash à ${d} px non bloqué`);
+  assert.ok(!dashIntoGuard(340), 'une charge essoufflée (340 px) ne compte plus comme un dash');
+});
+
 test('le cercle rétrécit jusqu\'au minimum puis s\'arrête', () => {
   const S = D.newMatch({ seed: 3, win: 1, ai: [null, null] });
   for (let n = 0; n < 120 * 60; n++) D.step(S, [D.NOCMD, D.NOCMD]);

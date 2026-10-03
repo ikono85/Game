@@ -112,6 +112,11 @@ Pendant ce temps, l'attaquant voit « Hanches basses » et peut appuyer sur sa
 garde : l'utchari échoue (« Contré ! ») et celui qui l'a tenté reste
 déséquilibré au bord une demi-seconde, sans dash.
 
+**Garde** : de face, elle te rend très lourd et bloque les dashs (chaque blocage
+coûte un peu de jauge). Une charge lancée de loin reste bloquable tant qu'elle
+arrive encore lancée, moins de 0,45 s après son départ. De dos, la garde ne
+protège presque pas.
+
 **Tachiai** : attends « Hakkeyoi ! ». Un dash juste après le signal pousse 30 %
 plus fort ; un dash avant le signal est un faux départ (matta) qui te fige un
 instant.

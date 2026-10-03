@@ -16,7 +16,7 @@ import { localCmd, unpackIn } from '../sim/cmd.js';
 import { newMatch, startRound, step } from '../sim/simulation.js';
 
 // À augmenter quand la physique ou l'IA change : un vieux ralenti ne rejouerait plus le même combat.
-const REPLAY_VER = 1;
+const REPLAY_VER = 2;
 const MAX_TICKS = 120 * 60 * 15;          // 15 minutes de combat au plus
 const MAX_ROUNDS = 64;
 

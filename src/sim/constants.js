@@ -6,6 +6,9 @@ const R0 = 380, RMIN = 170;          // rayon de départ et minimum du dohyō
 const SIM_HZ = 120, DT = 1 / SIM_HZ; // pas fixe de la simulation
 const GUARD_MAX = 1.8;               // secondes de garde avant de craquer
 const DASH_CD = 1.4, DASH_T = 0.25, DASH_IMPULSE = 620;
+// Une charge lancée de loin arrive souvent après la fin du dash (0,25 s) : elle compte encore comme
+// une charge (bloquable par la garde) si elle arrive moins de CHARGE_T après le départ, encore lancée.
+const CHARGE_T = 0.45, CHARGE_V = 300;
 const FEINT_CD = 0.7, FEINT_T = 0.25, FEINT_IMPULSE = 70;
 const ACC = 1500, FRICTION = 3.2, MAXV = 420;
 const SHRINK_DELAY = 6, SHRINK_SPEED = 9;
@@ -25,7 +28,7 @@ const COLORS = { red: '#d2412f', blue: '#2f6fb3' };
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 export {
-  ACC, C, COLORS, DASH_CD, DASH_IMPULSE, DASH_T, DT, EDGE_ZONE, FEINT_CD, FEINT_IMPULSE, FEINT_T,
+  ACC, C, CHARGE_T, CHARGE_V, COLORS, DASH_CD, DASH_IMPULSE, DASH_T, DT, EDGE_ZONE, FEINT_CD, FEINT_IMPULSE, FEINT_T,
   FRICTION, GUARD_MAX, HOLD_BRAKE, HOLD_DRAIN, HOLD_MASS, MATTA_STUN, MAXV, PI, R0, RMIN,
   ROUND_END_T, SHRINK_DELAY, SHRINK_SPEED, SIM_HZ, TACHIAI_BONUS, TACHIAI_WINDOW, TAU, UT_BRACE,
   UT_COST, UT_FAIL_STUN, UT_SWING, UT_THROW, UT_TOTAL, W, clamp,

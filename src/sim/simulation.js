@@ -5,7 +5,7 @@
  */
 import { aiMem } from './ai.js';
 import {
-  ACC, C, DASH_CD, DASH_IMPULSE, DASH_T, DT, EDGE_ZONE, FEINT_CD, FEINT_IMPULSE, FEINT_T, FRICTION,
+  ACC, C, CHARGE_T, CHARGE_V, DASH_CD, DASH_IMPULSE, DASH_T, DT, EDGE_ZONE, FEINT_CD, FEINT_IMPULSE, FEINT_T, FRICTION,
   GUARD_MAX, HOLD_BRAKE, HOLD_DRAIN, HOLD_MASS, MATTA_STUN, MAXV, PI, R0, RMIN, ROUND_END_T,
   SHRINK_DELAY, SHRINK_SPEED, TACHIAI_BONUS, TACHIAI_WINDOW, UT_BRACE, UT_COST, UT_FAIL_STUN,
   UT_SWING, UT_THROW, UT_TOTAL,
@@ -21,7 +21,7 @@ function rand(S) {
 }
 
 function makePlayer(x, y, face) {
-  return { x, y, px: x, py: y, vx: 0, vy: 0, r: 38, face, cd: 0, dashT: 0, guard: false,
+  return { x, y, px: x, py: y, vx: 0, vy: 0, r: 38, face, cd: 0, dashT: 0, dashAge: 9, guard: false,
     stamina: GUARD_MAX, guardCd: 0, fakeT: 0, fakeCd: 0, stun: 0, squash: 0, walk: 0,
     breath: 0, fallT: -1, matta: false, usedTachiai: false,
     hold: false, holdTick: -99, holdTime: 0,                      // tenue au bord
@@ -67,7 +67,7 @@ function tryDash(S, i) {
   if (!p.usedTachiai && !p.matta && S.roundT < 1.5) S.events.push({ type: 'reaction', who: i, t: S.roundT, perfect });
   p.usedTachiai = true;
   p.vx += Math.cos(p.face) * imp; p.vy += Math.sin(p.face) * imp;
-  p.cd = DASH_CD; p.dashT = DASH_T;
+  p.cd = DASH_CD; p.dashT = DASH_T; p.dashAge = 0;
   S.events.push({ type: 'dash', who: i, x: p.x - Math.cos(p.face) * p.r, y: p.y - Math.sin(p.face) * p.r });
 }
 
@@ -106,7 +106,7 @@ function integrate(p) {
   const cap = p.dashT > 0 ? 900 : MAXV;
   if (sp > cap) { p.vx *= cap / sp; p.vy *= cap / sp; }
   p.x += p.vx * DT; p.y += p.vy * DT;
-  p.cd = Math.max(0, p.cd - DT); p.dashT = Math.max(0, p.dashT - DT);
+  p.cd = Math.max(0, p.cd - DT); p.dashT = Math.max(0, p.dashT - DT); p.dashAge += DT;
   p.fakeT = Math.max(0, p.fakeT - DT); p.fakeCd = Math.max(0, p.fakeCd - DT);
   p.stun = Math.max(0, p.stun - DT);
   p.squash = Math.max(0, p.squash - DT * 4);
@@ -237,9 +237,19 @@ function updateUtchari(S, i) {
 }
 const swinging = p => p.utT >= 0 && p.utT < UT_BRACE + UT_SWING;
 
-function blocked(S, gi, oi, nx, ny) {
-  const g = S.p[gi], o = S.p[oi];
-  if (g.guard && o.dashT > 0 && Math.cos(g.face) * nx + Math.sin(g.face) * ny > 0.3) {
+/**
+ * Il charge : son dash est en cours, ou il l'a lancé il y a peu et arrive encore lancé dans sa
+ * direction (une charge lancée de loin touche souvent juste après la fin du dash).
+ */
+function charging(p) {
+  if (p.dashT > 0) return true;
+  if (p.dashAge >= CHARGE_T) return false;
+  return Math.cos(p.face) * p.vx + Math.sin(p.face) * p.vy > CHARGE_V;
+}
+
+function blocked(S, gi, oi, nx, ny, oCharging) {
+  const g = S.p[gi];
+  if (g.guard && oCharging && Math.cos(g.face) * nx + Math.sin(g.face) * ny > 0.3) {
     g.stamina = Math.max(0.05, g.stamina - 0.35);
     S.events.push({ type: 'block', who: gi, x: g.x + nx * g.r, y: g.y + ny * g.r });
   }
@@ -257,14 +267,15 @@ function collide(S) {
   b.x += nx * overlap * wb / (wa + wb); b.y += ny * overlap * wb / (wa + wb);
   const rv = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
   if (rv > 0) return;
+  const ch = [charging(a), charging(b)];       // avant le choc, qui renverse les vitesses
   const e = 1.35;                         // rebond un peu exagéré, c'est plus drôle
   const j = -(1 + e) * rv / (wa + wb);
   a.vx -= j * nx * wa; a.vy -= j * ny * wa;
   b.vx += j * nx * wb; b.vy += j * ny * wb;
-  blocked(S, 0, 1, nx, ny); blocked(S, 1, 0, -nx, -ny);
+  blocked(S, 0, 1, nx, ny, ch[1]); blocked(S, 1, 0, -nx, -ny, ch[0]);
   const force = Math.abs(rv);
   if (force > 250) { a.squash = b.squash = 1; }
-  S.events.push({ type: 'hit', force, x: a.x + nx * a.r, y: a.y + ny * a.r, dash: [a.dashT > 0, b.dashT > 0] });
+  S.events.push({ type: 'hit', force, x: a.x + nx * a.r, y: a.y + ny * a.r, dash: ch });
 }
 
 const isOut = (S, p) => Math.hypot(p.x - C, p.y - C) > S.ring + p.r * 0.35;

@@ -529,6 +529,8 @@ body.replaying .watch-bar { display: none; }
   var DASH_CD = 1.4;
   var DASH_T = 0.25;
   var DASH_IMPULSE = 620;
+  var CHARGE_T = 0.45;
+  var CHARGE_V = 300;
   var FEINT_CD = 0.7;
   var FEINT_T = 0.25;
   var FEINT_IMPULSE = 70;
@@ -1206,9 +1208,11 @@ body.replaying .watch-bar { display: none; }
       label: "le Mur",
       stars: 2,
       desc: "Tient le centre et garde dès qu'un dash arrive. Contre-attaque quand ta jauge de dash est vide.",
-      rate: 7,
-      react: 0.3,
-      guardP: 0.8,
+      // réflexes vifs pour lever la garde, mais lent à décider (3 fois par seconde) et moins têtu au bord :
+      // il tient tête au Pousseur, mais les lutteurs à trois étoiles trouvent la faille
+      rate: 3,
+      react: 0.25,
+      guardP: 0.6,
       read: 0.1,
       guardHold: 0.55,
       feintP: 0,
@@ -1222,7 +1226,7 @@ body.replaying .watch-bar { display: none; }
       patience: 1,
       adapt: 0,
       center: true,
-      holdP: 0.7,
+      holdP: 0.4,
       utchariP: 0,
       counterP: 0.6
     },
@@ -1456,15 +1460,16 @@ body.replaying .watch-bar { display: none; }
     }
     if (tk >= m.nextDecide) {
       m.nextDecide = tk + Math.max(1, Math.round(SIM_HZ / P.rate));
+      const orbit = Math.min(P.orbit || 0, S.ring * 0.5);
       let tx = ux, ty = uy;
       if (P.center) {
         const gx = C + fx * 0.25, gy = C + fy * 0.25;
         tx = (gx - me.x) / 60 + ux * 0.3;
         ty = (gy - me.y) / 60 + uy * 0.3;
-      } else if (P.orbit && d < P.orbit + 60 && foeEdge < 0.7 && rand(S) < P.orbitP) {
+      } else if (P.orbit && d < orbit + 60 && foeEdge < 0.7 && rand(S) < P.orbitP) {
         if (rand(S) < 0.08) m.orbitDir *= -1;
-        tx = -uy * m.orbitDir + ux * (d - P.orbit) / 80;
-        ty = ux * m.orbitDir + uy * (d - P.orbit) / 80;
+        tx = -uy * m.orbitDir + ux * (d - orbit) / 80;
+        ty = ux * m.orbitDir + uy * (d - orbit) / 80;
       }
       tx += fx / fd * 0.35;
       ty += fy / fd * 0.35;
@@ -1533,6 +1538,7 @@ body.replaying .watch-bar { display: none; }
       face,
       cd: 0,
       dashT: 0,
+      dashAge: 9,
       guard: false,
       stamina: GUARD_MAX,
       guardCd: 0,
@@ -1615,6 +1621,7 @@ body.replaying .watch-bar { display: none; }
     p.vy += Math.sin(p.face) * imp;
     p.cd = DASH_CD;
     p.dashT = DASH_T;
+    p.dashAge = 0;
     S.events.push({ type: "dash", who: i, x: p.x - Math.cos(p.face) * p.r, y: p.y - Math.sin(p.face) * p.r });
   }
   function tryFeint(S, i) {
@@ -1664,6 +1671,7 @@ body.replaying .watch-bar { display: none; }
     p.y += p.vy * DT;
     p.cd = Math.max(0, p.cd - DT);
     p.dashT = Math.max(0, p.dashT - DT);
+    p.dashAge += DT;
     p.fakeT = Math.max(0, p.fakeT - DT);
     p.fakeCd = Math.max(0, p.fakeCd - DT);
     p.stun = Math.max(0, p.stun - DT);
@@ -1801,9 +1809,14 @@ body.replaying .watch-bar { display: none; }
     }
   }
   var swinging = (p) => p.utT >= 0 && p.utT < UT_BRACE + UT_SWING;
-  function blocked(S, gi, oi, nx, ny) {
-    const g = S.p[gi], o = S.p[oi];
-    if (g.guard && o.dashT > 0 && Math.cos(g.face) * nx + Math.sin(g.face) * ny > 0.3) {
+  function charging(p) {
+    if (p.dashT > 0) return true;
+    if (p.dashAge >= CHARGE_T) return false;
+    return Math.cos(p.face) * p.vx + Math.sin(p.face) * p.vy > CHARGE_V;
+  }
+  function blocked(S, gi, oi, nx, ny, oCharging) {
+    const g = S.p[gi];
+    if (g.guard && oCharging && Math.cos(g.face) * nx + Math.sin(g.face) * ny > 0.3) {
       g.stamina = Math.max(0.05, g.stamina - 0.35);
       S.events.push({ type: "block", who: gi, x: g.x + nx * g.r, y: g.y + ny * g.r });
     }
@@ -1822,19 +1835,20 @@ body.replaying .watch-bar { display: none; }
     b.y += ny * overlap * wb / (wa + wb);
     const rv = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
     if (rv > 0) return;
+    const ch = [charging(a), charging(b)];
     const e = 1.35;
     const j = -(1 + e) * rv / (wa + wb);
     a.vx -= j * nx * wa;
     a.vy -= j * ny * wa;
     b.vx += j * nx * wb;
     b.vy += j * ny * wb;
-    blocked(S, 0, 1, nx, ny);
-    blocked(S, 1, 0, -nx, -ny);
+    blocked(S, 0, 1, nx, ny, ch[1]);
+    blocked(S, 1, 0, -nx, -ny, ch[0]);
     const force = Math.abs(rv);
     if (force > 250) {
       a.squash = b.squash = 1;
     }
-    S.events.push({ type: "hit", force, x: a.x + nx * a.r, y: a.y + ny * a.r, dash: [a.dashT > 0, b.dashT > 0] });
+    S.events.push({ type: "hit", force, x: a.x + nx * a.r, y: a.y + ny * a.r, dash: ch });
   }
   var isOut = (S, p) => Math.hypot(p.x - C, p.y - C) > S.ring + p.r * 0.35;
   function step(S, cmds) {
@@ -2031,7 +2045,7 @@ body.replaying .watch-bar { display: none; }
   }
 
   // src/game/replayfile.js
-  var REPLAY_VER = 1;
+  var REPLAY_VER = 2;
   var MAX_TICKS = 120 * 60 * 15;
   var MAX_ROUNDS = 64;
   var roundHead = (S) => ({ seed: S.seed | 0, signalAt: S.signalAt, score: S.score.slice(), round: S.round, rn: S.rn, tick: S.tick, n: 0, c: [[], []] });
@@ -3483,8 +3497,8 @@ body.replaying .watch-bar { display: none; }
       },
       dummy(S, D) {
         const me = S.p[1], foe = S.p[0], d = dist(me, foe);
-        const charging = foe.dashT > 0 || foe.fakeT > 0;
-        if (charging && d < 420 && S.tick >= D.calmUntil && S.tick >= D.guardUntil) {
+        const charging2 = foe.dashT > 0 || foe.fakeT > 0;
+        if (charging2 && d < 420 && S.tick >= D.calmUntil && S.tick >= D.guardUntil) {
           D.guardUntil = S.tick + 72;
           D.calmUntil = D.guardUntil + 120;
         }

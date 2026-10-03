@@ -18,8 +18,10 @@ const STYLES = {
   kabe: {
     id: 'kabe', label: 'le Mur', stars: 2,
     desc: "Tient le centre et garde dès qu'un dash arrive. Contre-attaque quand ta jauge de dash est vide.",
-    rate: 7, react: 0.3, guardP: 0.8, read: 0.1, guardHold: 0.55, feintP: 0, dashRange: 220, aimCos: 0.92,
-    edgeCare: 0.5, dodge: 0, tachiaiP: 0.2, mattaP: 0.03, flank: 0, patience: 1, adapt: 0, center: true, holdP: 0.7, utchariP: 0, counterP: 0.6,
+    // réflexes vifs pour lever la garde, mais lent à décider (3 fois par seconde) et moins têtu au bord :
+    // il tient tête au Pousseur, mais les lutteurs à trois étoiles trouvent la faille
+    rate: 3, react: 0.25, guardP: 0.6, read: 0.1, guardHold: 0.55, feintP: 0, dashRange: 220, aimCos: 0.92,
+    edgeCare: 0.5, dodge: 0, tachiaiP: 0.2, mattaP: 0.03, flank: 0, patience: 1, adapt: 0, center: true, holdP: 0.4, utchariP: 0, counterP: 0.6,
   },
   kitsune: {
     id: 'kitsune', label: 'le Renard', stars: 3,
@@ -175,13 +177,15 @@ function aiDecide(S, i) {
   if (tk >= m.nextDecide) {
     m.nextDecide = tk + Math.max(1, Math.round(SIM_HZ / P.rate));
     // Direction de déplacement
+    // le Danseur tourne autour de toi, mais plus serré quand le cercle rétrécit (sinon il tournerait sur la paille)
+    const orbit = Math.min(P.orbit || 0, S.ring * 0.5);
     let tx = ux, ty = uy;
     if (P.center) {                    // le Mur reste entre l'adversaire et le centre
       const gx = C + fx * 0.25, gy = C + fy * 0.25;
       tx = (gx - me.x) / 60 + ux * 0.3; ty = (gy - me.y) / 60 + uy * 0.3;
-    } else if (P.orbit && d < P.orbit + 60 && foeEdge < 0.7 && rand(S) < P.orbitP) {   // le Danseur tourne
+    } else if (P.orbit && d < orbit + 60 && foeEdge < 0.7 && rand(S) < P.orbitP) {   // le Danseur tourne
       if (rand(S) < 0.08) m.orbitDir *= -1;
-      tx = -uy * m.orbitDir + ux * (d - P.orbit) / 80; ty = ux * m.orbitDir + uy * (d - P.orbit) / 80;
+      tx = -uy * m.orbitDir + ux * (d - orbit) / 80; ty = ux * m.orbitDir + uy * (d - orbit) / 80;
     }
     // viser le côté extérieur de l'adversaire pour le pousser dehors
     tx += fx / fd * 0.35; ty += fy / fd * 0.35;
