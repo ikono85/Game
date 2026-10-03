@@ -5,6 +5,7 @@ import { Sound } from '../audio/sound.js';
 import { BASHO_DAYS, RANKS, career, newBasho } from '../game/career.js';
 import { startMatch, statsTable } from '../game/match.js';
 import { shareButton } from '../game/watch.js';
+import { kimariteText } from '../sim/kimarite.js';
 import { persist, save } from '../game/save.js';
 import { G } from '../game/state.js';
 import { FRAME, SKINS, sheetReady, skinSheet } from '../render/sprites.js';
@@ -86,7 +87,7 @@ function careerBoutResult(won) {
   showScreen({
     kanji: won ? '勝' : '負', seal: won ? 'shu' : 'ink',
     title: won ? 'Victoire' : 'Défaite',
-    lead: `Jour ${b.day} contre ${o.name}` + (G.kimarite === 'utchari' && won ? ', gagné par utchari.' : '.'),
+    lead: `Jour ${b.day} contre ${o.name}` + (G.S && G.S.phase === 'matchEnd' && G.S.endTick ? kimariteText(G.kimarite, won ? 'gagné par' : 'perdu par') : '.'),
     body: [recordEl(b.results, -1), statsTable(), list(next, G.S && G.S.phase === 'matchEnd' && G.S.endTick ? shareButton(G.lastReplay) : null)],
   });
 }

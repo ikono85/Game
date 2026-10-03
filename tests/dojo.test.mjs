@@ -20,6 +20,7 @@ const GOOD = {
     if (M.f != null && S.tick > M.f + 100) c.dash = true;
     return c;
   },
+  henka: S => { const go = S.p[1].dashT > 0 && near(S, 230); return { ...NOCMD, my: go ? 1 : 0, dash: go }; },
   tawara: S => ({ ...NOCMD, mx: S.tick > 36 ? 1 : 0 }),
   utchari: (S, M) => { if (canUtchari(S, 0) && M.seen == null) M.seen = S.tick; return { ...NOCMD, mx: 1, dash: M.seen != null && S.tick - M.seen > 30 }; },
   hanches: S => ({ ...NOCMD, mx: 1, guard: S.p[1].utT >= 0.12 && S.p[1].utT < UT_BRACE }),

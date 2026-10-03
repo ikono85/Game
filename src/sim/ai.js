@@ -3,7 +3,7 @@
  * commandes qu'un joueur, à partir de ce qu'un joueur peut voir.
  */
 import { C, DT, EDGE_ZONE, SIM_HZ, UT_BRACE, clamp } from './constants.js';
-import { NOCMD, canUtchari, rand } from './simulation.js';
+import { NOCMD, canHenka, canUtchari, charging, rand } from './simulation.js';
 
 // Ce que l'IA a le droit de « voir » : positions, vitesses, orientation, garde,
 // jauges (affichées à l'écran), animation de dash/feinte. Pas fakeT vs dashT
@@ -27,19 +27,19 @@ const STYLES = {
     id: 'kitsune', label: 'le Renard', stars: 3,
     desc: "Feinte pour te faire garder, puis frappe quand ta garde est vide ou que tu lui tournes le dos.",
     rate: 6, react: 0.2, guardP: 0.55, read: 0.5, feintP: 0.45, dashRange: 240, aimCos: 0.9,
-    edgeCare: 0.6, dodge: 0.1, tachiaiP: 0.4, mattaP: 0.05, flank: 0.6, patience: 0.6, adapt: 0, holdP: 0.55, utchariP: 0.07, counterP: 0.5,
+    edgeCare: 0.6, dodge: 0.1, tachiaiP: 0.4, mattaP: 0.05, flank: 0.6, patience: 0.6, adapt: 0, holdP: 0.55, utchariP: 0.07, counterP: 0.5, henkaP: 0.12,
   },
   mai: {
     id: 'mai', label: 'le Danseur', stars: 3,
-    desc: "Tourne autour de toi, esquive sur le côté au lieu de garder et attend que tu sois près du bord.",
+    desc: "Tourne autour de toi, esquive tes charges d'un pas de côté (henka) au lieu de garder, et attend que tu sois près du bord.",
     rate: 9, react: 0.15, guardP: 0.45, read: 0.4, feintP: 0.15, dashRange: 250, aimCos: 0.9,
-    edgeCare: 0.55, dodge: 0.4, tachiaiP: 0.25, mattaP: 0.04, flank: 0.3, patience: 0.5, adapt: 0, orbit: 220, orbitP: 0.35, holdP: 0.5, utchariP: 0.07, counterP: 0.4,
+    edgeCare: 0.55, dodge: 0.4, tachiaiP: 0.25, mattaP: 0.04, flank: 0.3, patience: 0.5, adapt: 0, orbit: 220, orbitP: 0.35, holdP: 0.5, utchariP: 0.07, counterP: 0.4, henkaP: 0.45,
   },
   yokozuna: {
     id: 'yokozuna', label: 'le Yokozuna', stars: 5,
     desc: "Lit tes feintes, gère le bord, varie ses attaques et s'adapte à tes habitudes.",
     rate: 12, react: 0.1, guardP: 0.85, read: 0.85, feintP: 0.3, dashRange: 250, aimCos: 0.93,
-    edgeCare: 0.55, dodge: 0.25, tachiaiP: 0.7, mattaP: 0.02, flank: 0.5, patience: 0.8, adapt: 1, holdP: 0.9, utchariP: 0.3, counterP: 0.85,
+    edgeCare: 0.55, dodge: 0.25, tachiaiP: 0.7, mattaP: 0.02, flank: 0.5, patience: 0.8, adapt: 1, holdP: 0.9, utchariP: 0.3, counterP: 0.85, henkaP: 0.15,
   },
 };
 const STYLE_ORDER = ['oshi', 'kabe', 'kitsune', 'mai', 'yokozuna'];
@@ -58,7 +58,7 @@ function aiMem() {
   return { nextDecide: 0, mx: 0, my: 0, wantDash: false, wantFeint: false, guardUntil: 0,
     reactAt: -1, reactKind: '', punishUntil: 0, lastAnim: false, dodgeDir: 1, dodgeUntil: 0, tachiaiAt: -1,
     mattaDone: false, guardsVsFeint: 0, feintsSeen: 0, blockedAt: -1, orbitDir: 1,
-    edgeRolled: false, holdOK: false, nextUt: 0, utSeen: -1, ctrAt: -1, ctrOK: false };
+    edgeRolled: false, holdOK: false, nextUt: 0, utSeen: -1, ctrAt: -1, ctrOK: false, henkaUntil: 0 };
 }
 
 /** Commande de l'IA : au bord, un dash serait un utchari ; l'IA ne le fait que si elle l'a décidé. */
@@ -122,6 +122,8 @@ function aiDecide(S, i) {
       if (looksFake) m.feintsSeen++;
       if (isRead) {
         if (me.cd <= 0 && aimed && d < P.dashRange) m.wantDash = true;   // punir la feinte
+      } else if (!looksFake && P.henkaP && me.cd <= 0 && rand(S) < P.henkaP) {
+        m.henkaUntil = tk + Math.round(0.35 * SIM_HZ); m.dodgeDir = rand(S) < 0.5 ? 1 : -1;   // pas de côté dès qu'il est assez près
       } else if (rand(S) < P.dodge) {
         m.dodgeUntil = tk + Math.round(0.3 * SIM_HZ); m.dodgeDir = rand(S) < 0.5 ? 1 : -1;
         m.punishUntil = m.dodgeUntil + Math.round(0.5 * SIM_HZ);
@@ -130,6 +132,13 @@ function aiDecide(S, i) {
         if (looksFake) m.guardsVsFeint++;
       }
     }
+  }
+
+  // --- Henka : la vraie charge arrive, pas de côté au dernier moment ---
+  if (tk < m.henkaUntil) {
+    const side = { mx: -uy * m.dodgeDir - mx / md * 0.25, my: ux * m.dodgeDir - my / md * 0.25 };   // de côté, plutôt vers le centre
+    if (canHenka(S, i, side)) { m.henkaUntil = 0; m.utNow = true; return { ...cmd, ...side, dash: true }; }
+    if (!charging(foe)) m.henkaUntil = 0;
   }
 
   // --- Garde en cours ---

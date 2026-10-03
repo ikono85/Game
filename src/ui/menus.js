@@ -10,6 +10,7 @@ import { onlineMenu, setPauseLabel } from '../net/screens.js';
 import { STYLES, STYLE_ORDER } from '../sim/ai.js';
 import { careerHub, wardrobe } from './career.js';
 import { dojoMenu } from '../game/dojo.js';
+import { LESSONS } from '../game/dojolessons.js';
 import { controlsCard } from './controls.js';
 import { setNames, updateScore } from './hud.js';
 import { dots, el, list, mbtn, showScreen } from './widgets.js';
@@ -39,7 +40,7 @@ function menu() {
 /** Sous-titre du Dojo : progression des leçons. */
 function dojoSub() {
   const done = (save.dojo && save.dojo.done || []).length;
-  return done === 0 ? 'Apprendre les techniques, pas à pas' : done >= 7 ? 'Toutes les leçons réussies' : `${done} leçon${done > 1 ? 's' : ''} sur 7 réussie${done > 1 ? 's' : ''}`;
+  return done === 0 ? 'Apprendre les techniques, pas à pas' : done >= LESSONS.length ? 'Toutes les leçons réussies' : `${done} leçon${done > 1 ? 's' : ''} sur ${LESSONS.length} réussie${done > 1 ? 's' : ''}`;
 }
 
 function aiSelect() {

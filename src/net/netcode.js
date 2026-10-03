@@ -440,7 +440,7 @@ function netMatchOver(N, w) {
   G.acc = 0;
   startReplay(() => {
     if (G.net !== N) return;
-    if (G.down[w]) throwZabuton();        // remonter de 0–(N-1) : les coussins volent
+    if (G.down[w] && G.kimarite !== 'hatakikomi') throwZabuton();        // remonter de 0–(N-1) : les coussins volent (pas sur un henka)
     Sound.roll();
     setTimeout(() => { if (G.net === N && N.phase === 'result') onlineResult(); }, G.down[w] ? 2000 : 450);
   });

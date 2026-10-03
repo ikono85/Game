@@ -16,9 +16,9 @@ modules dans `src/` (voir « Organisation du projet »).
   un combat en une manche par jour. Majorité de victoires (kachi-koshi) =
   promotion, sinon rétrogradation. Les rangs débloquent des mawashi (ceintures)
   au Vestiaire. Progression sauvegardée en local (`localStorage`).
-- **Dojo** — sept leçons courtes contre un apprenti, une par technique : le dash,
-  le départ (tachiai), la garde, la feinte, tenir au bord, l'utchari, les hanches
-  basses. Les leçons réussies sont sauvegardées en local.
+- **Dojo** — huit leçons courtes contre un apprenti, une par technique : le dash,
+  le départ (tachiai), la garde, la feinte, le henka, tenir au bord, l'utchari,
+  les hanches basses. Les leçons réussies sont sauvegardées en local.
 - **2 joueurs** — même clavier ou deux manettes, premier à 3 manches.
 - **Contre l'IA** — 5 lutteurs aux styles différents, premier à 3 manches.
 - **En ligne** — un joueur par écran, voir ci-dessous.
@@ -90,6 +90,7 @@ Touches par défaut :
 | Feinte | F | Ctrl droit / 1 pavé | X |
 | Pause | Échap | Échap | Start |
 | Tenir au bord | Sur la paille, pousser vers le centre | idem | Stick vers le centre |
+| Henka (pas de côté) | Quand il charge : une direction sur le côté + Espace | côté + Entrée | côté + A |
 | Utchari | Au bord, quand il te pousse : Espace | Entrée | A |
 | Hanches basses (contre) | Quand on tente l'utchari sur toi : E | Maj droite | B |
 
@@ -117,6 +118,20 @@ coûte un peu de jauge). Une charge lancée de loin reste bloquable tant qu'elle
 arrive encore lancée, moins de 0,45 s après son départ. De dos, la garde ne
 protège presque pas.
 
+**Henka** : quand l'adversaire charge (un vrai dash, pas une feinte) et qu'il
+n'est pas encore sur toi, choisis une direction sur le côté et dash : il te
+frôle sans te pousser, puis, emporté par son élan, ne contrôle plus rien un
+instant (« Dans le vide ! »). Au bord, il sort tout seul. Trop tard (déjà au
+contact), c'est un dash normal ; contre une feinte, ton dash part droit devant.
+C'est légal mais mal vu : la foule siffle, et une victoire sur un henka ne fait
+pas voler les coussins.
+
+**Prises (kimarite)** : chaque manche gagnée affiche sa prise, aussi au ralenti,
+dans les stats et dans les ralentis partagés : oshidashi (sorti par une charge),
+yorikiri (poussé dehors au corps à corps), okuridashi (poussé par derrière),
+hatakikomi (esquivé par un henka), utchari (pivot au bord), isamiashi (sorti
+tout seul).
+
 **Tachiai** : attends « Hakkeyoi ! ». Un dash juste après le signal pousse 30 %
 plus fort ; un dash avant le signal est un faux départ (matta) qui te fige un
 instant.
@@ -128,7 +143,7 @@ instant.
 | ★☆☆☆☆ le Pousseur | Fonce et dashe dès qu'il est aligné, garde rarement |
 | ★★☆☆☆ le Mur | Tient le centre, garde, contre-attaque quand ta jauge de dash est vide |
 | ★★★☆☆ le Renard | Feinte pour te faire garder, frappe quand ta garde est vide |
-| ★★★☆☆ le Danseur | Tourne autour de toi, esquive au lieu de garder |
+| ★★★☆☆ le Danseur | Tourne autour de toi, esquive tes charges d'un henka au lieu de garder |
 | ★★★★★ le Yokozuna | Lit les feintes, gère le bord, s'adapte à tes habitudes |
 
 Chaque style a son propre schéma de décision (pas seulement des stats

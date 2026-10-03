@@ -5,7 +5,7 @@
  */
 import { aiMem } from './ai.js';
 import {
-  ACC, C, CHARGE_T, CHARGE_V, DASH_CD, DASH_IMPULSE, DASH_T, DT, EDGE_ZONE, FEINT_CD, FEINT_IMPULSE, FEINT_T, FRICTION,
+  ACC, C, CHARGE_T, CHARGE_V, DASH_CD, HENKA_POWER, HENKA_RANGE, HENKA_SIDE, HENKA_STUN, HENKA_WINDOW, DASH_IMPULSE, DASH_T, DT, EDGE_ZONE, FEINT_CD, FEINT_IMPULSE, FEINT_T, FRICTION,
   GUARD_MAX, HOLD_BRAKE, HOLD_DRAIN, HOLD_MASS, MATTA_STUN, MAXV, PI, R0, RMIN, ROUND_END_T,
   SHRINK_DELAY, SHRINK_SPEED, TACHIAI_BONUS, TACHIAI_WINDOW, UT_BRACE, UT_COST, UT_FAIL_STUN,
   UT_SWING, UT_THROW, UT_TOTAL,
@@ -26,7 +26,8 @@ function makePlayer(x, y, face) {
     breath: 0, fallT: -1, matta: false, usedTachiai: false,
     hold: false, holdTick: -99, holdTime: 0,                      // tenue au bord
     utT: -1, utS: 1, utMx: 0, utMy: 0, utFace: 0, thrown: false,  // utchari en cours (utT = temps écoulé)
-    utReadyTick: -99, gIn: false };                                // gIn : touche de garde au tick précédent                                             // dernier instant où l'utchari était possible
+    utReadyTick: -99, gIn: false,
+    touchT: 9, henkaT: 0, whiffT: 9, lockT: 0 };                              // dernier contact, henka en cours, passé dans le vide                                // gIn : touche de garde au tick précédent                                             // dernier instant où l'utchari était possible
 }
 
 const NOCMD = Object.freeze({ mx: 0, my: 0, dash: false, feint: false, guard: false });
@@ -107,6 +108,7 @@ function integrate(p) {
   if (sp > cap) { p.vx *= cap / sp; p.vy *= cap / sp; }
   p.x += p.vx * DT; p.y += p.vy * DT;
   p.cd = Math.max(0, p.cd - DT); p.dashT = Math.max(0, p.dashT - DT); p.dashAge += DT;
+  p.touchT += DT; p.whiffT += DT; p.lockT = Math.max(0, p.lockT - DT);
   p.fakeT = Math.max(0, p.fakeT - DT); p.fakeCd = Math.max(0, p.fakeCd - DT);
   p.stun = Math.max(0, p.stun - DT);
   p.squash = Math.max(0, p.squash - DT * 4);
@@ -238,6 +240,58 @@ function updateUtchari(S, i) {
 const swinging = p => p.utT >= 0 && p.utT < UT_BRACE + UT_SWING;
 
 /**
+ * Henka (pas de côté) : il me charge, il est tout près mais ne me touche pas encore, et je dashe sur le
+ * côté (la direction choisie s'écarte nettement de la ligne entre nous). Mon dash part dans cette
+ * direction, il me frôle sans me pousser, puis il est emporté par son élan. Contre une feinte, ça ne
+ * marche pas : ce n'est pas une charge, mon dash part droit devant.
+ */
+function canHenka(S, i, c) {
+  const p = S.p[i], o = S.p[1 - i];
+  if (S.phase !== 'play' || p.cd > 0 || p.guard || p.stun > 0 || p.utT >= 0 || o.utT >= 0 || !charging(o)) return false;
+  const dx = p.x - o.x, dy = p.y - o.y, d = Math.hypot(dx, dy) || 1;
+  if (d > p.r + o.r + HENKA_RANGE || d < p.r + o.r + 8) return false;   // trop loin, ou déjà au contact
+  const ux = dx / d, uy = dy / d;
+  if (o.vx * ux + o.vy * uy < CHARGE_V) return false;               // il fonce vraiment sur moi
+  const n = Math.hypot(c.mx, c.my);
+  return n > 0 && Math.abs(ux * c.my - uy * c.mx) / n > HENKA_SIDE;
+}
+function startHenka(S, i, c) {
+  const p = S.p[i], n = Math.hypot(c.mx, c.my), ix = c.mx / n, iy = c.my / n;
+  p.face = Math.atan2(iy, ix);
+  p.vx += ix * DASH_IMPULSE * HENKA_POWER; p.vy += iy * DASH_IMPULSE * HENKA_POWER;
+  p.cd = DASH_CD; p.dashT = DASH_T; p.dashAge = 0; p.usedTachiai = true;
+  p.henkaT = HENKA_WINDOW;
+  S.p[1 - i].lockT = HENKA_WINDOW;                 // il est lancé : il ne peut plus corriger sa trajectoire
+  S.events.push({ type: 'henka', who: i, x: p.x - ix * p.r, y: p.y - iy * p.r });
+}
+/** Fin du pas de côté : il est passé dans le vide, emporté par son élan. */
+function updateHenka(S) {
+  for (let i = 0; i < 2; i++) {
+    const p = S.p[i];
+    if (p.henkaT <= 0) continue;
+    p.henkaT -= DT;
+    if (p.henkaT > 0) continue;
+    const o = S.p[1 - i];
+    o.stun = Math.max(o.stun, HENKA_STUN); o.whiffT = 0; o.guard = false; o.hold = false;
+    S.events.push({ type: 'henkaWhiff', who: i, x: o.x, y: o.y });
+  }
+}
+
+/**
+ * Nom de la prise gagnante (kimarite), d'après la façon dont le perdant est sorti.
+ */
+function kimarite(S, w) {
+  const win = S.p[w], los = S.p[1 - w];
+  if (los.thrown) return 'utchari';                                   // pivot au bord
+  if (los.whiffT < 1.2) return 'hatakikomi';                          // esquivé, emporté par son élan
+  const dx = win.x - los.x, dy = win.y - los.y, d = Math.hypot(dx, dy) || 1;
+  if (los.touchT < 0.6 && (Math.cos(los.face) * dx + Math.sin(los.face) * dy) / d < -0.3) return 'okuridashi';   // poussé de dos
+  if (win.dashAge < 1) return 'oshidashi';                            // sorti par une charge
+  if (los.touchT > 0.8) return 'isamiashi';                           // sorti tout seul
+  return 'yorikiri';                                                  // poussé au corps à corps
+}
+
+/**
  * Il charge : son dash est en cours, ou il l'a lancé il y a peu et arrive encore lancé dans sa
  * direction (une charge lancée de loin touche souvent juste après la fin du dash).
  */
@@ -258,8 +312,10 @@ function blocked(S, gi, oi, nx, ny, oCharging) {
 function collide(S) {
   const [a, b] = S.p;
   if (swinging(a) || swinging(b)) return;      // pendant le pivot, les deux lutteurs bougent ensemble
+  if (a.henkaT > 0 || b.henkaT > 0) return;    // pas de côté : il ne fait que le frôler et passe
   const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy), min = a.r + b.r;
   if (d >= min || d === 0) return;
+  a.touchT = b.touchT = 0;
   const nx = dx / d, ny = dy / d, overlap = min - d;
   const ma = mass(a, nx, ny), mb = mass(b, -nx, -ny);
   const wa = 1 / ma, wb = 1 / mb;
@@ -317,17 +373,19 @@ function step(S, cmds) {
       if (p.utT >= 0 || S.p.some(swinging)) { p.hold = false; continue; }   // pendant l'utchari, personne ne contrôle rien
       setGuard(p, c.guard);
       if (c.dash && canUtchari(S, i)) startUtchari(S, i, c);
+      else if (c.dash && canHenka(S, i, c)) startHenka(S, i, c);
       else if (c.dash) tryDash(S, i);
       if (c.feint) tryFeint(S, i);
       if (p.utT < 0) {
         updateHold(S, i, c);
-        if (p.stun <= 0) steer(p, c.mx, c.my);
+        if (p.stun <= 0 && p.lockT <= 0) steer(p, c.mx, c.my);
       }
     }
   }
   if (S.phase === 'play' || S.phase === 'roundEnd') { updateUtchari(S, 0); updateUtchari(S, 1); }
   integrate(S.p[0]); integrate(S.p[1]);
   collide(S);
+  updateHenka(S);
 
   for (const q of S.p) if (q.thrown && q.stun <= 0) q.thrown = false;   // rattrapé : ce n'est plus un utchari
   for (let i = 0; i < 2; i++) if (utchariReady(S, i)) S.p[i].utReadyTick = S.tick;
@@ -340,7 +398,7 @@ function step(S, cmds) {
       S.phase = 'roundEnd'; S.phaseT = 0;
       const loser = S.p[1 - w];
       loser.fallT = 0; loser.guard = false; loser.hold = false;
-      S.events.push({ type: 'roundWin', who: w, x: loser.x, y: loser.y, kimarite: loser.thrown ? 'utchari' : null });
+      S.events.push({ type: 'roundWin', who: w, x: loser.x, y: loser.y, kimarite: kimarite(S, w) });
     }
   } else if (S.phase === 'roundEnd' && S.phaseT >= ROUND_END_T) {
     if (S.score[S.winner] >= S.win) {
@@ -360,4 +418,4 @@ function hashState(S) {
   return (h >>> 0).toString(16);
 }
 
-export { NOCMD, canUtchari, hashState, newMatch, rand, startRound, step, utchariReady };
+export { NOCMD, canHenka, canUtchari, charging, hashState, newMatch, rand, startRound, step, utchariReady };

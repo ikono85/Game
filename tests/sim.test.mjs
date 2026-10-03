@@ -74,6 +74,62 @@ test('garde : une charge lancée de loin reste bloquable si elle arrive encore l
   assert.ok(!dashIntoGuard(340), 'une charge essoufflée (340 px) ne compte plus comme un dash');
 });
 
+/**
+ * Le bleu charge le rouge depuis 200 px ; le rouge fait (ou pas) un pas de côté quand la distance
+ * passe sous « at ». bleuFeinte : le bleu feinte au lieu de dasher. Renvoie les événements.
+ */
+function henkaScene({ at = 160, edge = false, bleuFeinte = false, side = true } = {}) {
+  const S = D.newMatch({ seed: 1, win: 1, ai: [null, null] });
+  S.phase = 'play'; S.roundT = 2;
+  const x0 = edge ? 704 - 330 : 704 - 60;
+  S.p[0].x = S.p[0].px = x0; S.p[1].x = S.p[1].px = x0 + 200; S.p[0].face = 0; S.p[1].face = Math.PI;
+  const ev = [];
+  let done = false;
+  for (let n = 0; n < 240; n++) {
+    const d = S.p[1].x - S.p[0].x;
+    const go = !done && d < at;
+    if (go) done = true;
+    D.step(S, [go ? { ...D.NOCMD, mx: side ? 0 : 1, my: side ? 1 : 0, dash: true } : D.NOCMD,
+      { ...D.NOCMD, mx: -1, dash: !bleuFeinte && n === 0, feint: bleuFeinte && n === 0 }]);
+    ev.push(...S.events); S.events.length = 0;
+  }
+  return ev;
+}
+
+test('henka : un pas de côté sur une vraie charge la fait passer dans le vide', () => {
+  const ev = henkaScene({ at: 160 });
+  assert.ok(ev.some(e => e.type === 'henka' && e.who === 0));
+  assert.ok(ev.some(e => e.type === 'henkaWhiff' && e.who === 0));
+  assert.ok(!ev.some(e => e.type === 'hit' && e.force > 250), 'il ne doit pas me toucher');
+});
+
+test('henka : au bord, il sort emporté par son élan (hatakikomi)', () => {
+  const win = henkaScene({ at: 160, edge: true }).find(e => e.type === 'roundWin');
+  assert.equal(win && win.who, 0);
+  assert.equal(win.kimarite, 'hatakikomi');
+});
+
+test('henka : contre une feinte ou dash droit devant, pas de henka', () => {
+  assert.ok(!henkaScene({ at: 140, bleuFeinte: true }).some(e => e.type === 'henka'), 'feinte');
+  assert.ok(!henkaScene({ at: 160, side: false }).some(e => e.type === 'henka'), 'tout droit');
+});
+
+test('henka : trop tard (déjà au contact), c\'est un dash normal', () => {
+  assert.ok(!henkaScene({ at: 80 }).some(e => e.type === 'henka'));
+});
+
+test('kimarite : une charge qui sort l\'adversaire est un oshidashi', () => {
+  const S = D.newMatch({ seed: 1, win: 1, ai: [null, null] });
+  S.phase = 'play'; S.roundT = 2;
+  S.p[0].x = S.p[0].px = 704 + 140; S.p[1].x = S.p[1].px = 704 + 300; S.p[0].face = 0; S.p[1].face = Math.PI;
+  let win = null;
+  for (let n = 0; n < 240 && !win; n++) {
+    D.step(S, [{ ...D.NOCMD, mx: 1, dash: n === 0 }, D.NOCMD]);
+    win = S.events.find(e => e.type === 'roundWin'); S.events.length = 0;
+  }
+  assert.equal(win && win.kimarite, 'oshidashi');
+});
+
 test('le cercle rétrécit jusqu\'au minimum puis s\'arrête', () => {
   const S = D.newMatch({ seed: 3, win: 1, ai: [null, null] });
   for (let n = 0; n < 120 * 60; n++) D.step(S, [D.NOCMD, D.NOCMD]);

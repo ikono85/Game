@@ -105,6 +105,31 @@ const LESSONS = [
     },
   },
   {
+    id: 'henka', title: 'Le henka', kanji: '変', reps: 2,
+    goal: k => `Quand l'apprenti charge, choisis une direction sur le côté (${k('side')}) et ${k('dash')} : il passe dans le vide, emporté par son élan. Deux fois.`,
+    learned: 'Le henka (pas de côté) répond à une vraie charge. Contre une feinte, ton dash part droit devant. Trop tard, tu prends la charge. Légal mais mal vu : la foule siffle.',
+    setup(S, D) { playNow(S); put(S.p[0], C - 80, C, 0); put(S.p[1], C + 220, C, PI); D.next = S.tick + 110; D.charge = 0; },
+    dummy(S, D) {
+      const me = S.p[1], foe = S.p[0], d = dist(me, foe);
+      if (S.tick < D.charge) return toward(me, foe);                          // la charge continue
+      if (S.tick < D.next) return d < 300 ? toward(foe, me) : { ...NOCMD };   // il reprend ses distances
+      const c = toward(me, foe);
+      const aimed = Math.cos(Math.atan2(foe.y - me.y, foe.x - me.x) - me.face) > 0.97;
+      if (d <= 260 && aimed && me.cd <= 0) { c.dash = true; D.charge = S.tick + 40; D.next = S.tick + 200; }
+      return c;
+    },
+    check(S, ev, D) {
+      if (has(ev, 'henkaWhiff', 0)) return { ok: true, msg: 'Dans le vide !' };
+      if (has(ev, 'henka', 0)) return { info: 'Pas de côté…' };
+      if (out(ev, 0)) return { fail: true, msg: 'Sorti. Pas de côté dès qu’il part, pas après le choc.' };
+      if (out(ev, 1)) return { reset: true, msg: 'Il est sorti : on le remet en place.' };
+      const hit = ev.find(e => e.type === 'hit' && e.dash[1] && e.force > 250);
+      if (hit) return { info: 'Touché : trop tard. Direction sur le côté et dash dès qu’il charge.' };
+      if (has(ev, 'dash', 0)) return { info: 'Ton dash est parti droit devant : choisis bien une direction sur le côté.' };
+      return null;
+    },
+  },
+  {
     id: 'tawara', title: 'Tenir au bord', kanji: '俵', reps: 2,
     goal: k => `Tu es sur les ballots de paille et l'apprenti te pousse dehors. Pousse tout de suite vers le centre avec ${k('move')} : tes talons se plantent dans la paille.`,
     learned: 'Au bord, pousser vers le centre freine sa poussée. Mais ça vide ta jauge de garde en 1 s : ensuite, les talons glissent.',

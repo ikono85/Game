@@ -12,6 +12,7 @@ import { startReplay } from '../render/replay.js';
 import { STYLES, makeProfile } from '../sim/ai.js';
 import { newMatch } from '../sim/simulation.js';
 import { newRecorder } from './replayfile.js';
+import { KIMARITE, kimariteText } from '../sim/kimarite.js';
 import { cleanName } from '../net/netcode.js';
 import { shareButton, watchEnd } from './watch.js';
 import { careerBoutResult } from '../ui/career.js';
@@ -63,6 +64,8 @@ function statsTable() {
     ['Résistances au bord', st => st.hold],
     ['Utchari', st => st.utchari],
     ['Utchari contrés', st => st.counter],
+    ['Henka réussis', st => st.henka],
+    ['Prises gagnantes', st => st.kim.length ? [...new Set(st.kim)].map(k => KIMARITE[k] ? KIMARITE[k].name : k).join(', ') : '–'],
     ['Meilleur départ', st => st.best == null ? '–' : fmtSec(st.best)],
   ];
   for (const [label, f] of rows) {
@@ -86,6 +89,7 @@ function afterReplay(w) {
   let upset;
   if (G.mode === 'career') { const c = career(); upset = w === 0 && (G.opp.rank > c.rank || G.opp.style === 'yokozuna'); }
   else upset = G.down[w] || (G.mode === 'ai' && w === 0 && G.opp.style === 'yokozuna');
+  if (G.kimarite === 'hatakikomi') upset = false;      // gagner sur un henka : légal, mais pas de coussins
   if (upset) throwZabuton();
   Sound.roll();
   const delay = upset ? 2000 : 450;
@@ -96,7 +100,7 @@ function afterReplay(w) {
   setTimeout(() => showScreen({
     kanji: '勝', seal: w === 0 ? 'shu' : 'blue',
     title: `${G.names[w]} gagne`,
-    lead: (w === 0 ? "Victoire à l'est" : "Victoire à l'ouest") + (G.kimarite === 'utchari' ? ', par utchari.' : '.'),
+    lead: (w === 0 ? "Victoire à l'est" : "Victoire à l'ouest") + kimariteText(G.kimarite),
     body: [fin, statsTable(), list(
       mbtn('Revanche', G.mode === 'versus' ? 'Mêmes joueurs' : `Contre ${G.opp.name}`, true, () => startMatch({ mode: G.mode, opp: G.opp })),
       shareButton(G.lastReplay),

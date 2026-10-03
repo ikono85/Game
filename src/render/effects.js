@@ -10,6 +10,7 @@ import { G } from '../game/state.js';
 import { isLocalHuman } from './draw.js';
 import { C, COLORS, SIM_HZ, TAU } from '../sim/constants.js';
 import { updateScore } from '../ui/hud.js';
+import { KIMARITE } from '../sim/kimarite.js';
 
 function burst(x, y, n, color) {
   for (let i = 0; i < n; i++) {
@@ -22,7 +23,7 @@ function setFlash(text, color = '#efe3c8', t = 1) { G.flash = { text, color, t }
 const fmtSec = t => `${t.toFixed(2).replace('.', ',')} s`;
 
 /** Effets visuels et sons d'un événement ; rejoués tels quels pendant le ralenti. */
-const VFX = new Set(['dash', 'feint', 'block', 'hit', 'roundWin', 'holdStart', 'slip', 'utchariStart', 'utchari', 'utchariCounter']);
+const VFX = new Set(['dash', 'feint', 'block', 'hit', 'roundWin', 'holdStart', 'slip', 'utchariStart', 'utchari', 'utchariCounter', 'henka', 'henkaWhiff']);
 function playVfx(e) {
   switch (e.type) {
     case 'dash': burst(e.x, e.y, 8, '#e8d2a4'); Sound.whoosh(0.28); break;
@@ -41,6 +42,8 @@ function playVfx(e) {
     case 'slip': burst(e.x, e.y, 16, '#b08850'); Sound.slip(); break;
     case 'utchariStart': Sound.taiko(0, 60, 0.7); Sound.whoosh(0.35); G.cheer = Math.max(G.cheer, 1); break;
     case 'utchariCounter': G.shake = 10; burst(e.x, e.y, 18, '#fff3c4'); Sound.block(); Sound.taiko(0, 70, 0.6); G.cheer = Math.max(G.cheer, 1.5); break;
+    case 'henka': burst(e.x, e.y, 10, '#e8d2a4'); Sound.whoosh(0.32); break;
+    case 'henkaWhiff': burst(e.x, e.y, 14, '#e8d2a4'); Sound.boo(); break;   // la foule siffle : légal, mais mal vu
     case 'utchari': G.shake = 16; burst(e.x, e.y, 26, '#f3e6c9'); Sound.hit(900); Sound.taiko(0.05, 95, 0.8); G.cheer = 3; break;
   }
 }
@@ -91,11 +94,15 @@ function handleEvents(S) {
         break;
       case 'draw': setFlash('Égalité, on recommence', '#efe3c8', 1.2); break;
       case 'holdStart': G.stats[e.who].hold++; break;
+      case 'henka': G.stats[e.who].henkaTry++; break;
+      case 'henkaWhiff': G.stats[e.who].henka++; setFlash('Dans le vide !', '#efe3c8', 1); break;
       case 'utchari': G.stats[e.who].utchari++; setFlash('Utchari !', '#ffd166', 1.4); break;
       case 'utchariCounter': G.stats[e.who].counter++; setFlash('Contré !', '#efe3c8', 1.1); break;
       case 'roundWin':
         G.kimarite = e.kimarite;
-        if (e.kimarite !== 'utchari') setFlash(`${G.names[e.who]} marque`, pc, 1.1);   // sinon « Utchari ! » reste affiché
+        if (e.kimarite) G.stats[e.who].kim.push(e.kimarite);
+        // le nom de la prise ; pour l'utchari, « Utchari ! » est déjà affiché
+        if (e.kimarite !== 'utchari') setFlash(KIMARITE[e.kimarite] ? `${KIMARITE[e.kimarite].name} !` : `${G.names[e.who]} marque`, pc, 1.3);
         updateScore(); break;
       case 'matchWin': if (G.mode !== 'online') onMatchEnd(e.who); break;
     }

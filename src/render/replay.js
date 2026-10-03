@@ -2,6 +2,7 @@
  * Ralenti du coup gagnant, rejoué à partir des dernières images enregistrées.
  */
 import { G } from '../game/state.js';
+import { KIMARITE } from '../sim/kimarite.js';
 import { PAD_GLYPHS } from '../input/gamepad.js';
 import { render } from './draw.js';
 import { playVfx } from './effects.js';
@@ -64,7 +65,7 @@ function updateReplay(dt) {
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'left'; ctx.fillStyle = '#efe3c8';
     ctx.font = `400 ${fs}px "Dela Gothic One", "Arial Black", sans-serif`;
-    ctx.fillText('Ralenti', Math.round(fs * 1.2), bar / 2);
+    ctx.fillText(KIMARITE[G.kimarite] ? `Ralenti · ${KIMARITE[G.kimarite].name}` : 'Ralenti', Math.round(fs * 1.2), bar / 2);
     ctx.textAlign = 'right'; ctx.fillStyle = 'rgba(239,227,200,.75)';
     ctx.font = `700 ${Math.round(fs * 0.6)}px "Zen Kaku Gothic New", sans-serif`;
     const skip = G.padFamily ? `Passer : ${PAD_GLYPHS[G.padFamily][0][0]}`

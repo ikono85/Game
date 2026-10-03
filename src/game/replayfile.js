@@ -13,10 +13,11 @@
  */
 import { aiCommand, makeProfile, STYLES } from '../sim/ai.js';
 import { localCmd, unpackIn } from '../sim/cmd.js';
+import { KIMARITE_IDS } from '../sim/kimarite.js';
 import { newMatch, startRound, step } from '../sim/simulation.js';
 
 // À augmenter quand la physique ou l'IA change : un vieux ralenti ne rejouerait plus le même combat.
-const REPLAY_VER = 2;
+const REPLAY_VER = 3;
 const MAX_TICKS = 120 * 60 * 15;          // 15 minutes de combat au plus
 const MAX_ROUNDS = 64;
 
@@ -175,7 +176,7 @@ async function decodeReplay(text) {
   const str = (v, d) => (typeof v === 'string' ? v.replace(/[\u0000-\u001f\u007f]/g, '').slice(0, 24) || d : d);
   return {
     meta: {
-      mode: str(meta.mode, 'versus'), win, ai, kimarite: meta.kim === 'utchari' ? 'utchari' : null,
+      mode: str(meta.mode, 'versus'), win, ai, kimarite: KIMARITE_IDS.includes(meta.kim) ? meta.kim : null,
       names: [str(meta.names && meta.names[0], 'Rouge'), str(meta.names && meta.names[1], 'Bleu')],
       skins: [str(meta.skins && meta.skins[0], 'rouge'), str(meta.skins && meta.skins[1], 'blue')],
     },

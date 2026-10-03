@@ -84,6 +84,13 @@ const Sound = {
     this.noiseHit(t + 0.05, { type: 'bandpass', f: 520, q: 7, vol: 0.18, dec: 0.08 });
   },
   slip() { if (!this.ok()) return; this.noiseHit(this.ctx.currentTime, { type: 'bandpass', f: 900, f2: 300, q: 2, vol: 0.3, dec: 0.25 }); },
+  boo() {                         // la foule siffle et grogne (henka)
+    if (!this.ok()) return;
+    const t = this.ctx.currentTime;
+    this.noiseHit(t, { type: 'bandpass', f: 260, f2: 180, q: 3, vol: 0.35, dec: 0.9 });
+    this.noiseHit(t + 0.15, { type: 'bandpass', f: 220, f2: 150, q: 4, vol: 0.25, dec: 0.8 });
+    this.tone(t + 0.05, { f: 1900, f2: 1500, type: 'sine', vol: 0.03, dec: 0.35, a: 0.05 });   // un sifflet
+  },
   click() { if (!this.ok()) return; this.tone(this.ctx.currentTime, { f: 700, type: 'triangle', vol: 0.08, dec: 0.05 }); },
   buzz() { if (!this.ok()) return; const t = this.ctx.currentTime; this.tone(t, { f: 140, type: 'square', vol: 0.08, dec: 0.25 }); this.hyoshigi(0.08); },
   crowdLevel(x) { if (this.crowd) this.crowd.gain.setTargetAtTime(x, this.ctx.currentTime, 0.25); },

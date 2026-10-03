@@ -3,6 +3,7 @@
  * combat à partir du lien (pause, vitesse, manche suivante).
  */
 import { Sound } from '../audio/sound.js';
+import { kimariteText } from '../sim/kimarite.js';
 import { decodeReplay, encodeReplay, newPlayback, playbackStep, replayReady } from './replayfile.js';
 import { G } from './state.js';
 import { resetMatchFx, statsTable } from './match.js';
@@ -120,7 +121,7 @@ function watchEnd(w) {
   showScreen({
     kanji: '映', seal: w === 0 ? 'shu' : 'blue',
     title: `${G.names[w]} gagne`,
-    lead: 'Fin du ralenti' + (R.meta.kimarite === 'utchari' ? ', gagné par utchari.' : '.'),
+    lead: 'Fin du ralenti' + kimariteText(G.kimarite || R.meta.kimarite, 'gagné par'),
     body: [fin, statsTable(), list(
       mbtn('Revoir', 'Depuis le début', true, () => startWatch(R)),
       shareButton(R),

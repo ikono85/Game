@@ -4,6 +4,7 @@
 import { Sound } from '../audio/sound.js';
 import { statsTable } from '../game/match.js';
 import { shareButton } from '../game/watch.js';
+import { kimariteText } from '../sim/kimarite.js';
 import { persist, save } from '../game/save.js';
 import { G } from '../game/state.js';
 import { held } from '../input/keyboard.js';
@@ -290,7 +291,7 @@ function onlineResult() {
   showScreen({
     kanji: won ? '勝' : '負', seal: won ? 'shu' : 'ink',
     title: won ? 'Victoire' : 'Défaite',
-    lead: (won ? `Tu as battu ${foe}` : `${foe} t’a battu`) + (G.kimarite === 'utchari' ? ', par utchari.' : '.'),
+    lead: (won ? `Tu as battu ${foe}` : `${foe} t’a battu`) + kimariteText(G.kimarite),
     body: [fin, statsTable(), list(rem, shareButton(G.lastReplay), mbtn('Quitter', 'Retour au menu en ligne', false, () => leaveOnline(), 'quiet'))],
     focus: N.gone ? '.mbtn.quiet' : undefined,
   });
