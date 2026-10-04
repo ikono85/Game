@@ -1,8 +1,11 @@
 /**
  * Vue plein écran : mise à l'échelle et gradins prolongés autour de la carte.
  */
+import { SEATS } from '../assets.js';
+import { G } from '../game/state.js';
 import { resetVignette } from './draw.js';
 import { MAP } from './sprites.js';
+import { sceneFor } from './scenes/index.js';
 import { W } from '../sim/constants.js';
 import { cv } from '../ui/dom.js';
 
@@ -11,7 +14,8 @@ import { cv } from '../ui/dom.js';
 const VIEW_H = 1300, VIEW_PORTRAIT = 960;
 const CELL = W / 14;                 // une loge de 4 coussins (masu-seki) sur la carte
 const V = { s: 1, ox: 0, oy: 0, cw: 1, ch: 1, x0: 0, y0: 0, x1: W, y1: W };
-let bgCache = null, extraSeats = [];
+let bgCache = null, extraSeats = [], bgArena = null;
+let crowdSeats = SEATS;              // le public à dessiner : les places de la carte et celles qu'on voit autour
 function hash2(a, b) {               // pseudo-hasard stable : les gradins ne changent pas d'une image à l'autre
   let h = (Math.imul(a | 0, 374761393) + Math.imul(b | 0, 668265263)) | 0;
   h = Math.imul(h ^ (h >>> 13), 1274126177);
@@ -19,6 +23,20 @@ function hash2(a, b) {               // pseudo-hasard stable : les gradins ne ch
 }
 function buildBackground() {
   extraSeats = [];
+  bgArena = G.arena;
+  const sc = sceneFor(G.arena);
+  if (sc) {                                                      // carte dessinée par le code, à la résolution de l'écran
+    const c = bgCache || document.createElement('canvas');
+    c.width = V.cw; c.height = V.ch;
+    const g = c.getContext('2d');
+    g.setTransform(V.s, 0, 0, V.s, V.ox, V.oy);
+    g.fillStyle = sc.base; g.fillRect(V.x0 - 2, V.y0 - 2, V.x1 - V.x0 + 4, V.y1 - V.y0 + 4);
+    sc.paint(g, V.x0 - 2, V.y0 - 2, V.x1 + 2, V.y1 + 2);
+    crowdSeats = sc.seats().filter(([x, y]) => x > V.x0 - 40 && x < V.x1 + 40 && y > V.y0 - 40 && y < V.y1 + 40);
+    bgCache = c;
+    return;
+  }
+  crowdSeats = SEATS;
   if (!(MAP.complete && MAP.naturalWidth)) { bgCache = null; return; }
   const c = bgCache || document.createElement('canvas');
   c.width = V.cw; c.height = V.ch;
@@ -46,8 +64,11 @@ function buildBackground() {
     }
   }
   g.drawImage(MAP, 0, 0, W, W);
+  crowdSeats = SEATS.concat(extraSeats);
   bgCache = c;
 }
+/** Reconstruit le fond s'il manque ou si l'arène a changé. */
+function ensureBackground() { if (!bgCache || bgArena !== G.arena) buildBackground(); }
 function fit() {
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   const cw = Math.max(200, Math.round(innerWidth * dpr)), ch = Math.max(200, Math.round(innerHeight * dpr));
@@ -62,4 +83,4 @@ function fit() {
 MAP.addEventListener('load', () => buildBackground());
 addEventListener('resize', fit);
 
-export { V, bgCache, buildBackground, extraSeats, fit };
+export { V, bgCache, buildBackground, crowdSeats, ensureBackground, fit };

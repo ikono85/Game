@@ -19,9 +19,13 @@ modules dans `src/` (voir « Organisation du projet »).
 - **Dojo** — huit leçons courtes contre un apprenti, une par technique : le dash,
   le départ (tachiai), la garde, la feinte, le henka, tenir au bord, l'utchari,
   les hanches basses. Les leçons réussies sont sauvegardées en local.
-- **Arènes** — en plus de Ryōgoku, quatre ambiances : printemps (pétales de
-  cerisier), nuit d'été (lanternes et lucioles), automne (feuilles d'érable),
-  hiver (neige). Purement visuelles. En carrière, chaque basho suit le vrai
+- **Arènes** — en plus de la salle de Ryōgoku, quatre lieux en plein air,
+  chacun avec sa propre carte : le sanctuaire aux cerisiers (torii, hall du
+  sanctuaire, pique-niques sous les fleurs), le matsuri d'été (de nuit, entre les
+  échoppes, les lanternes et les feux d'artifice), le temple d'automne (pagode,
+  étang aux carpes, érables) et le village sous la neige (fermes au toit de
+  chaume, huttes de neige, braseros, ombrelles). Purement visuelles : les cartes
+  sont dessinées par le code, sans image. En carrière, chaque basho suit le vrai
   calendrier (Hatsu en janvier, Haru en mars… six par an) et se déroule dans son
   arène ; atteindre un basho débloque son arène au Vestiaire pour les autres
   modes (ou « Au hasard »). En ligne, c'est l'arène de l'hôte.
@@ -180,9 +184,10 @@ src/
     sprites.js        planche du lutteur, ceintures (skins)
     draw.js           l'arène, les lutteurs, les invites à l'écran
     effects.js        particules, sons et stats déclenchés par la simulation
-    arenas.js         variantes d'arène : teinte, pétales, neige, lanternes
+    arenas.js         ambiance des arènes : pétales, feuilles, neige, feux d'artifice ; vignettes
+    scenes/           les cartes dessinées par le code (une par arène) et leurs outils
     replay.js         le ralenti du coup gagnant
-    view.js           plein écran, gradins prolongés
+    view.js           plein écran, fond mis en cache, gradins prolongés
   audio/sound.js    les sons, synthétisés
   input/            clavier (touches modifiables), manette, tactile
   ui/               écrans : menu, commandes, carrière, vestiaire, pause, bandeau

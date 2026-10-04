@@ -1,16 +1,17 @@
 /**
- * Les arènes (variantes visuelles du dohyō) et le calendrier des basho. Données seulement, sans DOM :
- * utilisées par le rendu, la carrière, le vestiaire et les ralentis partagés.
+ * Les arènes (lieux où se dresse le dohyō, purement visuels) et le calendrier des basho. Données
+ * seulement, sans DOM : utilisées par le rendu, la carrière, le vestiaire et les ralentis partagés.
+ * Les identifiants restent ceux des saisons (sauvegardes et ralentis déjà partagés).
  *
  * Comme le vrai calendrier : six basho par an, un tous les deux mois. En carrière, chaque basho se
  * déroule dans son arène ; l'atteindre la débloque pour les autres modes (vestiaire).
  */
 const ARENAS = [
   { id: 'ryogoku', name: 'Ryōgoku', season: 'Classique', desc: 'Le Kokugikan de Tokyo, comme toujours.' },
-  { id: 'haru', name: 'Printemps', season: 'Haru basho', desc: 'Pétales de cerisier dans la salle.' },
-  { id: 'nagoya', name: 'Nuit d’été', season: 'Nagoya basho', desc: 'Lanternes et lucioles, la salle dans la pénombre.' },
-  { id: 'aki', name: 'Automne', season: 'Aki basho', desc: 'Feuilles d’érable rouges et dorées.' },
-  { id: 'hatsu', name: 'Hiver', season: 'Hatsu basho', desc: 'La neige tombe sur le dohyō.' },
+  { id: 'haru', name: 'Sanctuaire aux cerisiers', season: 'Haru basho', desc: 'En plein air, entre le hall du sanctuaire et le torii, sous les cerisiers en fleurs.' },
+  { id: 'nagoya', name: 'Matsuri d’été', season: 'Nagoya basho', desc: 'De nuit, au milieu des échoppes, des lanternes et des feux d’artifice.' },
+  { id: 'aki', name: 'Temple d’automne', season: 'Aki basho', desc: 'Dans la cour d’un vieux temple : pagode, étang aux carpes, érables rouges.' },
+  { id: 'hatsu', name: 'Village sous la neige', season: 'Hatsu basho', desc: 'Sur la place d’un village de montagne, entre les fermes au toit de chaume.' },
 ];
 const ARENA_IDS = ARENAS.map(a => a.id);
 

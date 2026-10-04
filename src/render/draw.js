@@ -1,13 +1,13 @@
 /**
  * Rendu canvas : dohyō, foule, lutteurs, étiquettes, invites (utchari, hanches basses), textes.
  */
-import { SEATS } from '../assets.js';
 import { G } from '../game/state.js';
 import { PAD_GLYPHS, padForPlayer } from '../input/gamepad.js';
 import { BIND, PAD, keyName } from '../input/keyboard.js';
 import { drawYouMarker } from '../net/screens.js';
 import { CROWD, FRAME, SPRITE_SIZE, pickFrame, sheetReady, skinSheet } from './sprites.js';
-import { V, bgCache, buildBackground, extraSeats } from './view.js';
+import { V, bgCache, crowdSeats, ensureBackground } from './view.js';
+import { sceneFor } from './scenes/index.js';
 import { drawArenaOver, drawArenaUnder } from './arenas.js';
 import { C, DASH_CD, GUARD_MAX, PI, R0, TAU, UT_BRACE } from '../sim/constants.js';
 import { canUtchari } from '../sim/simulation.js';
@@ -55,15 +55,30 @@ function drawRing(ring, players) {
   ctx.fillRect(C + 64, C - 40, 8, 80);
 }
 
-let vignette = null;
+let vignette = null, vigArena = null;
 const resetVignette = () => { vignette = null; };   // la fenêtre a changé de taille
+/** Ombrelle en papier huilé (janome-gasa) vue de dessus : un spectateur abrité de la neige. */
+function drawKasa(x, y, v, ph, up) {
+  const col = ['#b8322f', '#2d4f86', '#7b3a6b', '#c47a2c'][v & 3], r = 33 + (up ? 2 : 0);
+  ctx.save();
+  ctx.translate(x, y); ctx.rotate(ph * TAU + G.t * 0.15 * (v & 1 ? 1 : -1));
+  ctx.fillStyle = 'rgba(30,30,50,.25)'; ctx.beginPath(); ctx.arc(6, 8, r, 0, TAU); ctx.fill();
+  ctx.fillStyle = col; ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(0, 0, r * 0.62, 0, TAU); ctx.stroke();
+  ctx.strokeStyle = 'rgba(0,0,0,.22)'; ctx.lineWidth = 1.5; ctx.beginPath();
+  for (let k = 0; k < 12; k++) { const a = k / 12 * TAU; ctx.moveTo(0, 0); ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.beginPath(); ctx.arc(-r * 0.2, -r * 0.2, r * 0.42, -2.2, -0.9); ctx.arc(0, 0, r * 0.2, -0.9, -2.2, true); ctx.fill();
+  ctx.fillStyle = '#e9e1cf'; ctx.beginPath(); ctx.arc(0, 0, 5, 0, TAU); ctx.fill();
+  ctx.restore();
+}
 function drawCrowd() {
   if (CROWD.complete && CROWD.naturalWidth) {
     ctx.imageSmoothingEnabled = true;
-    for (let i = 0, n = SEATS.length + extraSeats.length; i < n; i++) {
-      const [x, y, v, ph] = i < SEATS.length ? SEATS[i] : extraSeats[i - SEATS.length];
-      const a = Math.atan2(G.focusY - y, G.focusX - x);           // tout le monde suit le combat
+    for (const [x, y, v, ph, kind] of crowdSeats) {
       const up = G.cheer > 0 && ((G.t * 2.4 + ph) % 1) < 0.35 + 0.4 * Math.min(1, G.cheer);
+      if (kind === 'kasa') { drawKasa(x, y, v, ph, up); continue; }
+      const a = Math.atan2(G.focusY - y, G.focusX - x);           // tout le monde suit le combat
       const s = (1 + 0.018 * Math.sin(G.t * 1.4 + ph * 6.28)) * (up ? 1.07 : 1);
       ctx.save();
       ctx.translate(x, y); ctx.rotate(a); ctx.scale(s, s);
@@ -71,15 +86,25 @@ function drawCrowd() {
       ctx.restore();
     }
   }
+  if (vigArena !== G.arena) { vignette = null; vigArena = G.arena; }
+  const sc = sceneFor(G.arena);
+  if (sc && !sc.vignette) return;
   if (!vignette) {
     // lumière de scène : même dégradé qu'avant sur la carte, qui continue à s'assombrir sur les gradins ajoutés
     const R = Math.max(981, Math.hypot(Math.max(C - V.x0, V.x1 - C), Math.max(C - V.y0, V.y1 - C)));
     const t = r => Math.min(1, (r - 470) / (R - 470));
     vignette = ctx.createRadialGradient(C, C, 470, C, C, R);
-    vignette.addColorStop(0, 'rgba(12,7,4,0)');
-    vignette.addColorStop(t(648), 'rgba(12,7,4,.22)');
-    vignette.addColorStop(t(980), 'rgba(12,7,4,.66)');
-    if (R > 981) vignette.addColorStop(1, 'rgba(12,7,4,.85)');
+    if (sc) {                                                      // en plein air : une ombre bien plus légère
+      const { rgb, a } = sc.vignette;
+      vignette.addColorStop(0, `rgba(${rgb},${a[0]})`);
+      vignette.addColorStop(t(900), `rgba(${rgb},${a[1]})`);
+      vignette.addColorStop(1, `rgba(${rgb},${a[2]})`);
+    } else {
+      vignette.addColorStop(0, 'rgba(12,7,4,0)');
+      vignette.addColorStop(t(648), 'rgba(12,7,4,.22)');
+      vignette.addColorStop(t(980), 'rgba(12,7,4,.66)');
+      if (R > 981) vignette.addColorStop(1, 'rgba(12,7,4,.85)');
+    }
   }
   ctx.fillStyle = vignette; ctx.fillRect(V.x0, V.y0, V.x1 - V.x0, V.y1 - V.y0);
 }
@@ -263,7 +288,7 @@ function render(S, alpha, dt, cam) {
   const tx = V.ox + V.s * (C - z * fx) + shx * V.s, ty = V.oy + V.s * (C - z * fy) + shy * V.s;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.fillStyle = '#1a120c'; ctx.fillRect(0, 0, V.cw, V.ch);
-  if (!bgCache) buildBackground();
+  ensureBackground();
   // le fond est mis en cache en pixels écran : on lui applique le même zoom
   if (bgCache) { ctx.setTransform(z, 0, 0, z, tx - z * V.ox, ty - z * V.oy); ctx.drawImage(bgCache, 0, 0); }
   ctx.setTransform(V.s * z, 0, 0, V.s * z, tx, ty);   // coordonnées du monde

@@ -2,7 +2,7 @@
  * Les événements de la simulation deviennent effets visuels, sons et stats.
  * Coussins (zabuton) lancés par le public après un exploit.
  */
-import { SEATS } from '../assets.js';
+import { crowdSeats } from './view.js';
 import { Sound } from '../audio/sound.js';
 import { onMatchEnd } from '../game/match.js';
 import { persist, save } from '../game/save.js';
@@ -114,7 +114,8 @@ function handleEvents(S) {
 // Coussins lancés par le public lors d'un exploit
 function throwZabuton(n = 40) {
   for (let i = 0; i < n; i++) {
-    const s = SEATS[(Math.random() * SEATS.length) | 0];
+    const s = crowdSeats[(Math.random() * crowdSeats.length) | 0];
+    if (!s || s[4] === 'kasa') continue;                // sous une ombrelle, on garde son coussin
     const a = Math.random() * TAU, r = Math.random() * 300;
     G.zabuton.push({ x0: s[0], y0: s[1], x1: C + Math.cos(a) * r, y1: C + Math.sin(a) * r,
       t: -Math.random() * 1.2, dur: 0.8 + Math.random() * 0.5, rot: Math.random() * TAU, spin: (Math.random() - .5) * 14,

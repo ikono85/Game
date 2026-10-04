@@ -30,9 +30,10 @@ Reste un fichier front pur (HTML/JS), aucun serveur.
   et un lien qui rejoue tout un match à partir de sa graine et des commandes. Le
   même principe servira au classé : le serveur rejouera les commandes pour
   valider le résultat.
-- **Fait : variantes d'arène.** Printemps, nuit d'été, automne, hiver, en plus
-  de Ryōgoku ; purement visuelles. La carrière suit le calendrier des six basho
-  et débloque leurs arènes au vestiaire.
+- **Fait : arènes.** Quatre lieux en plein air avec chacun sa carte, en plus de
+  Ryōgoku : sanctuaire aux cerisiers, matsuri d'été (de nuit), temple d'automne,
+  village sous la neige ; purement visuels, dessinés par le code. La carrière
+  suit le calendrier des six basho et débloque leurs arènes au vestiaire.
 - **Point de vigilance à anticiper dès maintenant** : garder la simulation
   aussi déterministe que possible (pas de `Math.random()` non seedé dans la
   boucle physique si évitable, dt fixe si possible). Ça ne sert à rien
