@@ -95,7 +95,8 @@ function pollPads() {
   }
 }
 function moveFocus(dir) {
-  const items = Array.from(card.querySelectorAll('button:not(:disabled)'));
+  const items = Array.from(card.querySelectorAll(ov.classList.contains('title') ? '.t-hot' : '.scr-main button:not(:disabled)'));
+  if (document.activeElement && document.activeElement.scrollIntoView) setTimeout(() => document.activeElement.scrollIntoView({ block: 'nearest' }), 0);
   if (!items.length) return;
   const k = items.indexOf(document.activeElement);
   items[(k + dir + items.length) % items.length].focus({ focusVisible: true });

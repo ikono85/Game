@@ -27,6 +27,8 @@ const ACTIONS = {
   quit: () => { Sound.click(); quit(); },
 };
 
+document.getElementById('ov').style.setProperty('--art', `url(${ASSETS.title})`);   // l'illustration sert aussi de fond aux menus
+
 function titleScreen() {
   G.back = null; G.capture = null;
   const bg = el('div', 'title-bg');                       // l'image floutée remplit les bords sur un écran en hauteur

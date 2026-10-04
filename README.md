@@ -12,8 +12,12 @@ modules dans `src/` (voir « Organisation du projet »).
 
 ## Modes
 
-Le jeu s'ouvre sur l'écran titre (Jouer, Options, Quitter) ; « Jouer » mène au
-menu des modes, « Options » au son, aux commandes et au vestiaire.
+Le jeu s'ouvre sur l'écran titre (Jouer, Options, Quitter). « Jouer » mène au
+menu principal, façon jeu de combat : cinq grands choix (Carrière, Combat, En
+ligne, Dojo, Vestiaire), la description du choix en cours dans un bandeau, les
+touches et « Retour » dans la barre du bas. « Combat » regroupe le match contre
+l'IA et le 2 joueurs ; « Options » (écran titre) le son, les commandes et le
+vestiaire.
 
 - **Carrière** — monte le banzuke du Jonokuchi au Yokozuna. Un basho = 7 jours,
   un combat en une manche par jour. Majorité de victoires (kachi-koshi) =
