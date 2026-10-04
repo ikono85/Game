@@ -13,6 +13,7 @@ import { dojoMenu } from '../game/dojo.js';
 import { LESSONS } from '../game/dojolessons.js';
 import { controlsCard } from './controls.js';
 import { setNames, updateScore } from './hud.js';
+import { titleScreen } from './title.js';
 import { dots, el, list, mbtn, showScreen } from './widgets.js';
 
 function menu() {
@@ -33,7 +34,9 @@ function menu() {
       mbtn("Contre l'IA", 'Cinq adversaires, cinq styles', false, aiSelect),
       mbtn('Vestiaire', 'Ceinture et arène', false, () => wardrobe(menu)),
       mbtn('Commandes', 'Clavier, manette, tactile', false, () => controlsCard(menu)),
+      mbtn('Retour', 'Écran titre', false, titleScreen, 'quiet'),
     )],
+    back: titleScreen,
   });
 }
 

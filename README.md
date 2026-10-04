@@ -12,6 +12,9 @@ modules dans `src/` (voir « Organisation du projet »).
 
 ## Modes
 
+Le jeu s'ouvre sur l'écran titre (Jouer, Options, Quitter) ; « Jouer » mène au
+menu des modes, « Options » au son, aux commandes et au vestiaire.
+
 - **Carrière** — monte le banzuke du Jonokuchi au Yokozuna. Un basho = 7 jours,
   un combat en une manche par jour. Majorité de victoires (kachi-koshi) =
   promotion, sinon rétrogradation. Les rangs débloquent des mawashi (ceintures)
@@ -190,13 +193,13 @@ src/
     view.js           plein écran, fond mis en cache, gradins prolongés
   audio/sound.js    les sons, synthétisés
   input/            clavier (touches modifiables), manette, tactile
-  ui/               écrans : menu, commandes, carrière, vestiaire, pause, bandeau
+  ui/               écrans : écran titre, menu, commandes, carrière, vestiaire, pause, bandeau
   game/             état partagé, boucle principale, match local, carrière, sauvegarde,
                     dojo (dojo.js, leçons dans dojolessons.js),
                     ralentis partagés (replayfile.js : enregistrement et lien ; watch.js : lecteur),
                     arènes et calendrier des basho (arenalist.js)
   net/              le mode en ligne (connexion, rollback, écrans)
-assets/             les vraies images : wrestler.webp (planche), map.jpg, crowd.png
+assets/             les vraies images : wrestler.webp (planche), map.jpg, crowd.png, title.webp (écran titre)
 tests/              tests de la simulation
 ```
 

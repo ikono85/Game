@@ -26,7 +26,7 @@ import { NOCMD, canUtchari, hashState, newMatch, step, utchariReady } from './si
 import { careerBoutResult } from './ui/career.js';
 import { syncArenas } from './game/career.js';
 import { updateScore } from './ui/hud.js';
-import { menu } from './ui/menus.js';
+import { titleScreen } from './ui/title.js';
 import { syncMute } from './ui/pause.js';
 import { openReplayLink } from './game/watch.js';
 
@@ -38,7 +38,7 @@ loadBinds();                      // touches choisies par le joueur
 syncArenas();                     // arènes découvertes en carrière
 Sound.muted = save.muted; syncMute();
 updateScore();
-menu();
+titleScreen();                    // l'écran titre ; « Jouer » mène au menu principal
 // lien d'invitation : …/#duel=ABCDE ouvre directement « Rejoindre », code rempli
 const invite = /[#&]duel=([A-Za-z0-9]{5})\b/.exec(location.hash);
 if (invite) {

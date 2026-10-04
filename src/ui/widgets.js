@@ -36,13 +36,14 @@ function showScreen({ kanji, title, lead, body = [], focus, seal, back = null })
   if (back) { const h2 = el('span'); h2.append(padBadge(1), document.createTextNode('Retour')); hint.append(h2); }
   main.append(hint);
   card.replaceChildren(k, main);
+  ov.classList.remove('title');                       // on quitte l'écran titre s'il était affiché
   ov.hidden = false; ov.scrollTop = 0;
   document.body.classList.add('menu-open');
   setTimeout(() => { const f = card.querySelector(focus || 'button:not(:disabled)'); if (f) f.focus({ focusVisible: true, preventScroll: true }); }, 0);   // sans faire défiler l'écran
 }
 function hideOverlay() {
   G.back = null;
-  ov.hidden = true;
+  ov.hidden = true; ov.classList.remove('title');
   document.body.classList.remove('menu-open');
   if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
 }

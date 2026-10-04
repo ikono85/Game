@@ -457,3 +457,78 @@ body.replaying .watch-bar { display: none; }
 .swatch.dice .dice-face { display: grid; place-items: center; width: 96px; height: 96px; border-radius: 4px;
   background: rgba(28, 19, 13, .12); font: 400 48px/1 var(--font-display); color: var(--m-ink-soft); }
 @media (max-width: 480px) { .swatches.arenas canvas, .swatch.dice .dice-face { width: 72px; height: 72px; } }
+
+/* ---- Écran titre : l'illustration plein écran, ses boutons dessinés dedans, de vrais boutons posés dessus ---- */
+.overlay.title { background: #0d0806; overflow: hidden; }
+.overlay.title::before { display: none; }
+.overlay.title .card { display: block; padding: 0; height: 100%; }
+.title-bg {            /* sur un écran en hauteur, l'image floutée remplit le haut et le bas */
+  position: absolute; inset: -80px;
+  background: center / cover no-repeat;
+  filter: blur(24px) brightness(.4) saturate(1.2);
+}
+/* L'image couvre l'écran (rognée sur les côtés ou en haut et en bas), mais sur un téléphone en hauteur
+   on garde au moins 41 % de sa largeur : le logo et les boutons restent entiers. */
+.title-art {
+  position: absolute; left: 50%; top: 50%;
+  width: max(100vw, min(177.7vh, 245vw));
+  aspect-ratio: 1672 / 941;
+  transform: translate(-50%, -50%);
+  animation: title-in 1.2s cubic-bezier(.2, .7, .2, 1) both;
+}
+@supports (height: 100dvh) { .title-art { width: max(100vw, min(177.7dvh, 245vw)); } }
+@media (max-aspect-ratio: 1/1) {
+  .title-art { -webkit-mask-image: linear-gradient(transparent, #000 7%, #000 93%, transparent); mask-image: linear-gradient(transparent, #000 7%, #000 93%, transparent); }
+}
+.title-art img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; user-select: none; -webkit-user-drag: none; }
+@keyframes title-in { from { opacity: 0; transform: translate(-50%, -50%) scale(1.05); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+
+.t-hot {
+  position: absolute; z-index: 2; margin: 0; padding: 0; border: 0; border-radius: 6px;
+  background: transparent; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: box-shadow .18s, background-color .18s;
+}
+.t-hot:focus { outline: none; }
+/* Jouer : la plaque respire doucement, s'illumine de rouge au survol, et son trait de pinceau s'allonge */
+.t-play { animation: t-breathe 2.6s ease-in-out infinite; }
+.t-play::after {
+  content: ""; position: absolute; left: 50%; top: 66%; height: 7%; width: 27%;
+  transform: translateX(-50%); border-radius: 3px; background: #d8392c;
+  opacity: 0; transition: width .25s cubic-bezier(.2, .8, .2, 1), opacity .2s;
+}
+.t-play:hover, .t-play:focus-visible {
+  animation: none;
+  box-shadow: 0 0 0 2px rgba(216, 57, 44, .95), 0 0 34px 6px rgba(216, 57, 44, .5);
+  background-color: rgba(255, 240, 220, .05);
+}
+.t-play:hover::after, .t-play:focus-visible::after { width: 52%; opacity: 1; }
+.t-play:active { background-color: rgba(255, 240, 220, .12); }
+@keyframes t-breathe { 0%, 100% { box-shadow: 0 0 18px 0 rgba(216, 57, 44, 0); } 50% { box-shadow: 0 0 26px 2px rgba(216, 57, 44, .32); } }
+/* Options, Quitter : un trait de pinceau rouge et deux losanges encadrent le mot */
+.t-opt::before, .t-quit::before, .t-opt::after, .t-quit::after {
+  content: ""; position: absolute; top: 50%; width: 9px; height: 9px; margin-top: -4.5px;
+  background: #d8392c; transform: rotate(45deg) scale(.4); opacity: 0; transition: transform .2s, opacity .2s;
+}
+.t-opt::before, .t-quit::before { left: -10%; }
+.t-opt::after, .t-quit::after { right: -10%; }
+.t-opt:hover, .t-opt:focus-visible, .t-quit:hover, .t-quit:focus-visible {
+  background: linear-gradient(transparent 80%, rgba(216, 57, 44, .9) 80%, rgba(216, 57, 44, .9) 88%, transparent 88%) center / 70% 100% no-repeat;
+}
+.t-opt:hover::before, .t-opt:focus-visible::before, .t-quit:hover::before, .t-quit:focus-visible::before,
+.t-opt:hover::after, .t-opt:focus-visible::after, .t-quit:hover::after, .t-quit:focus-visible::after { opacity: 1; transform: rotate(45deg) scale(1); }
+
+.title-paper { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.title-paper i {
+  position: absolute; top: -4%; left: var(--x); width: .9%; height: 1.6%; min-width: 6px; min-height: 10px;
+  background: #c8291f; opacity: .85; border-radius: 1px;
+  animation: t-paper var(--d) linear var(--delay) infinite;
+}
+@keyframes t-paper {
+  0% { transform: translate(0, 0) rotate(0); }
+  50% { transform: translate(3vw, 55vh) rotate(calc(var(--r) / 2)); }
+  100% { transform: translate(-1vw, 115vh) rotate(var(--r)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .title-art, .t-play { animation: none; }
+  .title-paper { display: none; }
+}
