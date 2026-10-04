@@ -6,14 +6,16 @@
  *   base                      la couleur de fond ;
  *   fx, count                 ce qui tombe ou flotte (voir arenas.js) ;
  *   vignette                  { rgb, a: [centre, milieu, bord] } ou null ;
- *   under(g, rect, t)         facultatif : nuit, lueurs, guirlandes, dessinées par-dessus le public.
+ *   under(g, rect, t)         facultatif : nuit, lueurs, guirlandes, dessinées par-dessus le public ;
+ *   ready()                   facultatif : faux tant qu'une image n'est pas chargée (le fond attend).
  */
 import haru from './haru.js';
 import nagoya from './nagoya.js';
 import aki from './aki.js';
 import hatsu from './hatsu.js';
+import taki from './taki.js';
 
-const SCENES = { haru, nagoya, aki, hatsu };
+const SCENES = { haru, nagoya, aki, hatsu, taki };
 const sceneFor = id => SCENES[id] || null;
 
 export { sceneFor };

@@ -25,6 +25,7 @@ function buildBackground() {
   extraSeats = [];
   bgArena = G.arena;
   const sc = sceneFor(G.arena);
+  if (sc && sc.ready && !sc.ready()) { bgCache = null; crowdSeats = []; return; }   // image pas encore chargée : on réessaiera
   if (sc) {                                                      // carte dessinée par le code, à la résolution de l'écran
     const c = bgCache || document.createElement('canvas');
     c.width = V.cw; c.height = V.ch;

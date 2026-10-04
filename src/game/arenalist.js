@@ -11,6 +11,7 @@ const ARENAS = [
   { id: 'haru', name: 'Sanctuaire aux cerisiers', season: 'Haru basho', desc: 'En plein air, entre le hall du sanctuaire et le torii, sous les cerisiers en fleurs.' },
   { id: 'nagoya', name: 'Matsuri d’été', season: 'Nagoya basho', desc: 'De nuit, au milieu des échoppes, des lanternes et des feux d’artifice.' },
   { id: 'aki', name: 'Temple d’automne', season: 'Aki basho', desc: 'Dans la cour d’un vieux temple : pagode, étang aux carpes, érables rouges.' },
+  { id: 'taki', name: 'Pic des cascades', season: 'Kyūshū basho', desc: 'Au sommet d’un pilier de pierre, au-dessus des cascades et des érables.' },
   { id: 'hatsu', name: 'Village sous la neige', season: 'Hatsu basho', desc: 'Sur la place d’un village de montagne, entre les fermes au toit de chaume.' },
 ];
 const ARENA_IDS = ARENAS.map(a => a.id);
@@ -21,7 +22,7 @@ const BASHO = [
   { name: 'Natsu basho', month: 'mai', city: 'Tokyo', arena: 'ryogoku' },
   { name: 'Nagoya basho', month: 'juillet', city: 'Nagoya', arena: 'nagoya' },
   { name: 'Aki basho', month: 'septembre', city: 'Tokyo', arena: 'aki' },
-  { name: 'Kyūshū basho', month: 'novembre', city: 'Fukuoka', arena: 'aki' },
+  { name: 'Kyūshū basho', month: 'novembre', city: 'Fukuoka', arena: 'taki' },
 ];
 /** Le basho n° n de la carrière (1, 2, 3…) : on tourne dans le calendrier. */
 const bashoOf = n => BASHO[(Math.max(1, n | 0) - 1) % BASHO.length];

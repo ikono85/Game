@@ -163,7 +163,7 @@ function arenaPreview(id, size = 192) {
   const c = document.createElement('canvas'); c.width = c.height = size;
   const sc = sceneFor(id);
   const draw = () => {
-    if (!(MAP.complete && MAP.naturalWidth && CROWD.complete && CROWD.naturalWidth)) { setTimeout(draw, 100); return; }
+    if (!(MAP.complete && MAP.naturalWidth && CROWD.complete && CROWD.naturalWidth) || (sc && sc.ready && !sc.ready())) { setTimeout(draw, 100); return; }
     const g = c.getContext('2d');
     const key = id + '|' + size;
     if (previews[key]) { g.drawImage(previews[key], 0, 0); return; }

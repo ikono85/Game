@@ -33,8 +33,10 @@ sauf en ligne) ; le bandeau du match est en plaques noires coupées en biais.
   sanctuaire, pique-niques sous les fleurs), le matsuri d'été (de nuit, entre les
   échoppes, les lanternes et les feux d'artifice), le temple d'automne (pagode,
   étang aux carpes, érables) et le village sous la neige (fermes au toit de
-  chaume, huttes de neige, braseros, ombrelles). Purement visuelles : les cartes
-  sont dessinées par le code, sans image. En carrière, chaque basho suit le vrai
+  chaume, huttes de neige, braseros, ombrelles). Purement visuelles : ces cartes
+  sont dessinées par le code, sans image. Et le Pic des cascades, une carte
+  peinte (un dohyō au sommet d'un pilier de pierre, entre cascades et érables),
+  ouverte d'emblée et arène du Kyūshū basho. En carrière, chaque basho suit le vrai
   calendrier (Hatsu en janvier, Haru en mars… six par an) et se déroule dans son
   arène ; atteindre un basho débloque son arène au Vestiaire pour les autres
   modes (ou « Au hasard »). En ligne, c'est l'arène de l'hôte.
@@ -205,7 +207,7 @@ src/
                     ralentis partagés (replayfile.js : enregistrement et lien ; watch.js : lecteur),
                     arènes et calendrier des basho (arenalist.js)
   net/              le mode en ligne (connexion, rollback, écrans)
-assets/             les vraies images : wrestler.webp (planche), map.jpg, crowd.png, title.webp (écran titre)
+assets/             les vraies images : wrestler.webp (planche), map.jpg, crowd.png, title.webp (écran titre), taki.webp (Pic des cascades)
 tests/              tests de la simulation
 ```
 
