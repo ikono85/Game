@@ -18,6 +18,8 @@ const G = {
   lastReplay: null,       // dernier match terminé, prêt à partager
   watch: null,            // lecture d'un ralenti partagé
   dojo: null,             // leçon du dojo en cours
+  arena: 'ryogoku',       // arène affichée (voir game/arenalist.js)
+  arenaLabel: null,       // « Haru basho · Osaka », affiché au premier départ
 };
 
 export { G, newStats };

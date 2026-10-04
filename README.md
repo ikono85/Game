@@ -19,6 +19,12 @@ modules dans `src/` (voir « Organisation du projet »).
 - **Dojo** — huit leçons courtes contre un apprenti, une par technique : le dash,
   le départ (tachiai), la garde, la feinte, le henka, tenir au bord, l'utchari,
   les hanches basses. Les leçons réussies sont sauvegardées en local.
+- **Arènes** — en plus de Ryōgoku, quatre ambiances : printemps (pétales de
+  cerisier), nuit d'été (lanternes et lucioles), automne (feuilles d'érable),
+  hiver (neige). Purement visuelles. En carrière, chaque basho suit le vrai
+  calendrier (Hatsu en janvier, Haru en mars… six par an) et se déroule dans son
+  arène ; atteindre un basho débloque son arène au Vestiaire pour les autres
+  modes (ou « Au hasard »). En ligne, c'est l'arène de l'hôte.
 - **2 joueurs** — même clavier ou deux manettes, premier à 3 manches.
 - **Contre l'IA** — 5 lutteurs aux styles différents, premier à 3 manches.
 - **En ligne** — un joueur par écran, voir ci-dessous.
@@ -174,6 +180,7 @@ src/
     sprites.js        planche du lutteur, ceintures (skins)
     draw.js           l'arène, les lutteurs, les invites à l'écran
     effects.js        particules, sons et stats déclenchés par la simulation
+    arenas.js         variantes d'arène : teinte, pétales, neige, lanternes
     replay.js         le ralenti du coup gagnant
     view.js           plein écran, gradins prolongés
   audio/sound.js    les sons, synthétisés
@@ -181,7 +188,8 @@ src/
   ui/               écrans : menu, commandes, carrière, vestiaire, pause, bandeau
   game/             état partagé, boucle principale, match local, carrière, sauvegarde,
                     dojo (dojo.js, leçons dans dojolessons.js),
-                    ralentis partagés (replayfile.js : enregistrement et lien ; watch.js : lecteur)
+                    ralentis partagés (replayfile.js : enregistrement et lien ; watch.js : lecteur),
+                    arènes et calendrier des basho (arenalist.js)
   net/              le mode en ligne (connexion, rollback, écrans)
 assets/             les vraies images : wrestler.webp (planche), map.jpg, crowd.png
 tests/              tests de la simulation

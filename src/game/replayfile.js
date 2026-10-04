@@ -14,6 +14,7 @@
 import { aiCommand, makeProfile, STYLES } from '../sim/ai.js';
 import { localCmd, unpackIn } from '../sim/cmd.js';
 import { KIMARITE_IDS } from '../sim/kimarite.js';
+import { ARENA_IDS } from './arenalist.js';
 import { newMatch, startRound, step } from '../sim/simulation.js';
 
 // À augmenter quand la physique ou l'IA change : un vieux ralenti ne rejouerait plus le même combat.
@@ -133,7 +134,7 @@ async function encodeReplay(R) {
   w.u8(0x44); w.u8(0x44); w.u8(REPLAY_VER);              // « DD », version
   const m = R.meta;
   const json = new TextEncoder().encode(JSON.stringify({
-    mode: m.mode, names: m.names, skins: m.skins, win: m.win, ai: m.ai, final: R.final, kim: m.kimarite || null,
+    mode: m.mode, names: m.names, skins: m.skins, win: m.win, ai: m.ai, final: R.final, kim: m.kimarite || null, arena: m.arena || null,
   }));
   w.vu(json.length); w.bytes(json);
   w.vu(R.rounds.length);
@@ -176,7 +177,7 @@ async function decodeReplay(text) {
   const str = (v, d) => (typeof v === 'string' ? v.replace(/[\u0000-\u001f\u007f]/g, '').slice(0, 24) || d : d);
   return {
     meta: {
-      mode: str(meta.mode, 'versus'), win, ai, kimarite: KIMARITE_IDS.includes(meta.kim) ? meta.kim : null,
+      mode: str(meta.mode, 'versus'), win, ai, arena: ARENA_IDS.includes(meta.arena) ? meta.arena : 'ryogoku', kimarite: KIMARITE_IDS.includes(meta.kim) ? meta.kim : null,
       names: [str(meta.names && meta.names[0], 'Rouge'), str(meta.names && meta.names[1], 'Bleu')],
       skins: [str(meta.skins && meta.skins[0], 'rouge'), str(meta.skins && meta.skins[1], 'blue')],
     },

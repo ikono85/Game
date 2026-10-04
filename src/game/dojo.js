@@ -6,7 +6,7 @@ import { Sound } from '../audio/sound.js';
 import { LESSONS } from './dojolessons.js';
 import { persist, save } from './save.js';
 import { G } from './state.js';
-import { resetMatchFx } from './match.js';
+import { resetMatchFx, setArena } from './match.js';
 import { careerHub } from '../ui/career.js';
 import { PAD_GLYPHS } from '../input/gamepad.js';
 import { BIND, PAD, keyName } from '../input/keyboard.js';
@@ -64,6 +64,7 @@ function startLesson(i) {
   G.names = ['Toi', 'Apprenti']; G.skins[0] = save.skin;
   setNames('Toi', 'Dojo', 'Apprenti', `Leçon ${i + 1}`);
   resetMatchFx();
+  setArena('ryogoku');
   G.dojo = { i, L, count: 0, mem: {}, wait: 0, then: null, msg: '', frozen: false, ui: '' };
   setupAttempt();
   hideOverlay(); updateScore();

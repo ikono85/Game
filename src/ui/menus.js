@@ -31,7 +31,7 @@ function menu() {
       mbtn('En ligne', 'Partie rapide ou duel privé avec un code', false, onlineMenu),
       mbtn('2 joueurs', 'Même clavier ou deux manettes', false, () => startMatch({ mode: 'versus' })),
       mbtn("Contre l'IA", 'Cinq adversaires, cinq styles', false, aiSelect),
-      mbtn('Vestiaire', 'Choisir ta ceinture', false, () => wardrobe(menu)),
+      mbtn('Vestiaire', 'Ceinture et arène', false, () => wardrobe(menu)),
       mbtn('Commandes', 'Clavier, manette, tactile', false, () => controlsCard(menu)),
     )],
   });

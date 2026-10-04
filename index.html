@@ -455,6 +455,13 @@ body.replaying .watch-bar { display: none; }
 .share-link { margin: 8px 0 4px; font-size: 14px; width: 100%; box-sizing: border-box; }
 .watch-bar .icon-btn { margin-top: 0; }
 .net-input.share-link { font: 700 14px/1.3 var(--font-body); max-width: none; padding: 8px 10px; }
+
+/* ---------- Vestiaire : arènes ---------- */
+.swatches.arenas { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.swatches.arenas canvas { width: 96px; height: 96px; border-radius: 4px; }
+.swatch.dice .dice-face { display: grid; place-items: center; width: 96px; height: 96px; border-radius: 4px;
+  background: rgba(28, 19, 13, .12); font: 400 48px/1 var(--font-display); color: var(--m-ink-soft); }
+@media (max-width: 480px) { .swatches.arenas canvas, .swatch.dice .dice-face { width: 72px; height: 72px; } }
 </style>
 </head><body>
 
@@ -754,8 +761,12 @@ body.replaying .watch-bar { display: none; }
     // dernier match terminé, prêt à partager
     watch: null,
     // lecture d'un ralenti partagé
-    dojo: null
+    dojo: null,
     // leçon du dojo en cours
+    arena: "ryogoku",
+    // arène affichée (voir game/arenalist.js)
+    arenaLabel: null
+    // « Haru basho · Osaka », affiché au premier départ
   };
 
   // src/game/save.js
@@ -2053,6 +2064,27 @@ body.replaying .watch-bar { display: none; }
     return (h >>> 0).toString(16);
   }
 
+  // src/game/arenalist.js
+  var ARENAS = [
+    { id: "ryogoku", name: "Ryōgoku", season: "Classique", desc: "Le Kokugikan de Tokyo, comme toujours." },
+    { id: "haru", name: "Printemps", season: "Haru basho", desc: "Pétales de cerisier dans la salle." },
+    { id: "nagoya", name: "Nuit d’été", season: "Nagoya basho", desc: "Lanternes et lucioles, la salle dans la pénombre." },
+    { id: "aki", name: "Automne", season: "Aki basho", desc: "Feuilles d’érable rouges et dorées." },
+    { id: "hatsu", name: "Hiver", season: "Hatsu basho", desc: "La neige tombe sur le dohyō." }
+  ];
+  var ARENA_IDS = ARENAS.map((a) => a.id);
+  var BASHO = [
+    { name: "Hatsu basho", month: "janvier", city: "Tokyo", arena: "hatsu" },
+    { name: "Haru basho", month: "mars", city: "Osaka", arena: "haru" },
+    { name: "Natsu basho", month: "mai", city: "Tokyo", arena: "ryogoku" },
+    { name: "Nagoya basho", month: "juillet", city: "Nagoya", arena: "nagoya" },
+    { name: "Aki basho", month: "septembre", city: "Tokyo", arena: "aki" },
+    { name: "Kyūshū basho", month: "novembre", city: "Fukuoka", arena: "aki" }
+  ];
+  var bashoOf = (n) => BASHO[(Math.max(1, n | 0) - 1) % BASHO.length];
+  var firstBashoFor = (id) => BASHO.findIndex((b) => b.arena === id) + 1;
+  var arenaById = (id) => ARENAS.find((a) => a.id === id) || ARENAS[0];
+
   // src/game/career.js
   var RANKS = [
     { name: "Jonokuchi", kanji: "序ノ口" },
@@ -2121,6 +2153,30 @@ body.replaying .watch-bar { display: none; }
     }
     if (!save.career.basho) newBasho(save.career);
     return save.career;
+  }
+  function syncArenas() {
+    const have = new Set(Array.isArray(save.arenas) ? save.arenas : []);
+    have.add("ryogoku");
+    const fresh = [];
+    const n = save.career ? Math.min(save.career.bashoNo, BASHO.length) : 0;
+    for (let k = 1; k <= n; k++) {
+      const id = bashoOf(k).arena;
+      if (!have.has(id)) {
+        have.add(id);
+        fresh.push(id);
+      }
+    }
+    save.arenas = ARENA_IDS.filter((id) => have.has(id));
+    return fresh;
+  }
+  var arenaUnlocked = (id) => (save.arenas || ["ryogoku"]).includes(id);
+  function pickArena() {
+    const pick = save.arena || "ryogoku";
+    if (pick === "hasard") {
+      const l = save.arenas || ["ryogoku"];
+      return l[Math.random() * l.length | 0];
+    }
+    return arenaUnlocked(pick) ? pick : "ryogoku";
   }
 
   // src/sim/cmd.js
@@ -2324,7 +2380,8 @@ body.replaying .watch-bar { display: none; }
       win: m.win,
       ai: m.ai,
       final: R.final,
-      kim: m.kimarite || null
+      kim: m.kimarite || null,
+      arena: m.arena || null
     }));
     w.vu(json.length);
     w.bytes(json);
@@ -2379,6 +2436,7 @@ body.replaying .watch-bar { display: none; }
         mode: str(meta.mode, "versus"),
         win,
         ai,
+        arena: ARENA_IDS.includes(meta.arena) ? meta.arena : "ryogoku",
         kimarite: KIMARITE_IDS.includes(meta.kim) ? meta.kim : null,
         names: [str(meta.names && meta.names[0], "Rouge"), str(meta.names && meta.names[1], "Bleu")],
         skins: [str(meta.skins && meta.skins[0], "rouge"), str(meta.skins && meta.skins[1], "blue")]
@@ -2955,7 +3013,7 @@ body.replaying .watch-bar { display: none; }
   function hostStart() {
     const N = G.net;
     if (!N || N.role !== "host" || N.pendingStart) return;
-    const st = { t: "start", mid: ++N.midSeq, seed: Math.random() * 2 ** 31 | 0, win: N.win, names: [N.myName, N.foeName], skin: save.skin };
+    const st = { t: "start", mid: ++N.midSeq, seed: Math.random() * 2 ** 31 | 0, win: N.win, names: [N.myName, N.foeName], skin: save.skin, arena: pickArena() };
     N.pendingStart = st;
     netSend(st);
   }
@@ -2967,7 +3025,8 @@ body.replaying .watch-bar { display: none; }
       seed: m.seed | 0,
       win: [1, 2, 3].includes(m.win) ? m.win : 3,
       names: [cleanName(m.names && m.names[0]) || "Adversaire", N.myName],
-      skin: SKINS.some((s) => s.id === m.skin && !s.hidden) ? m.skin : "rouge"
+      skin: SKINS.some((s) => s.id === m.skin && !s.hidden) ? m.skin : "rouge",
+      arena: ARENA_IDS.includes(m.arena) ? m.arena : "ryogoku"
     };
     N.win = st.win;
     N.foeName = st.names[0];
@@ -3026,13 +3085,14 @@ body.replaying .watch-bar { display: none; }
     setNames(st.names[0], N.me === 0 ? "Toi" : "Est", st.names[1], N.me === 1 ? "Toi" : "Ouest");
     G.S = newMatch({ seed: st.seed, win: st.win, ai: [null, null] });
     resetMatchFx();
+    setArena(st.arena || "ryogoku");
     hideOverlay();
     updateScore();
     setPauseLabel();
     handleEvents(G.S);
     const M = N.M = newNetMatch();
     M.snaps.set(0, { s: structuredClone(G.S), c: {} });
-    M.rec = { meta: { mode: "online", names: G.names.slice(), skins: [st.skin, "blue"], win: st.win }, head0: roundHead(G.S), inp: [], heads: /* @__PURE__ */ new Map() };
+    M.rec = { meta: { mode: "online", names: G.names.slice(), skins: [st.skin, "blue"], win: st.win, arena: G.arena }, head0: roundHead(G.S), inp: [], heads: /* @__PURE__ */ new Map() };
     G.last = performance.now();
     const early = N.early;
     N.early = [];
@@ -3330,6 +3390,269 @@ body.replaying .watch-bar { display: none; }
     }
   });
 
+  // src/render/arenas.js
+  var LOOKS = {
+    ryogoku: null,
+    haru: { grade: [["soft-light", "#ff8fbd", 0.5], ["source-over", "#ffd9e6", 0.07]], fx: "sakura", count: 70 },
+    nagoya: { grade: [["multiply", "#7f86b8", 0.5]], night: true, fx: "hotaru", count: 28 },
+    aki: { grade: [["soft-light", "#ff8a2a", 0.45], ["multiply", "#f2d2b0", 0.25]], fx: "momiji", count: 40 },
+    hatsu: { grade: [["multiply", "#c9d8f2", 0.55], ["soft-light", "#e8f1ff", 0.35]], fx: "yuki", count: 170 }
+  };
+  var PALETTE = {
+    sakura: ["#f7b6cc", "#f29ab8", "#fcd3e1", "#ffe6ee"],
+    momiji: ["#c8452c", "#e07a2e", "#b8322a", "#e9a23b", "#d1602a"],
+    yuki: ["#ffffff", "#f2f7ff"],
+    hotaru: ["#d8ff8a", "#f2ff9a"]
+  };
+  var look = () => LOOKS[G.arena] || null;
+  var rnd = (a, b) => a + Math.random() * (b - a);
+  var amb = { id: null, list: [] };
+  function spawn(q, fx, fresh) {
+    const x0 = V.x0 - 40, x1 = V.x1 + 40, y0 = V.y0 - 40, y1 = V.y1 + 40;
+    Object.assign(q, { x: rnd(x0, x1), y: rnd(y0, y1), rot: rnd(0, TAU), ph: rnd(0, TAU), a: 1 });
+    if (fx === "hotaru") {
+      do {
+        q.x = rnd(x0, x1);
+        q.y = rnd(y0, y1);
+      } while (Math.hypot(q.x - C, q.y - C) < R0 + 40);
+      Object.assign(q, { z: 0, dir: rnd(0, TAU), sp: rnd(12, 30), size: rnd(2.2, 3.4), life: rnd(6, 14) });
+    } else {
+      const fall = fx === "yuki" ? rnd(4, 8) : rnd(3.5, 7);
+      Object.assign(q, {
+        z: fresh ? 1 : rnd(0, 1),
+        vz: -1 / fall,
+        vx: fx === "yuki" ? rnd(-6, 10) : rnd(10, 32),
+        vy: rnd(4, 18),
+        // un léger courant d'air
+        spin: rnd(-2.5, 2.5),
+        size: fx === "yuki" ? rnd(2, 4.5) : fx === "momiji" ? rnd(10, 14) : rnd(7, 10),
+        rest: rnd(1.5, 4)
+        // temps posé au sol avant de disparaître
+      });
+    }
+    q.color = PALETTE[fx][Math.random() * PALETTE[fx].length | 0];
+    return q;
+  }
+  function ensure(L) {
+    if (amb.id === G.arena) return;
+    amb.id = G.arena;
+    amb.list = [];
+    if (!L) return;
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const n = Math.round(L.count * (reduce ? 0.4 : 1));
+    for (let i = 0; i < n; i++) amb.list.push(spawn({}, L.fx, false));
+  }
+  function update(L, dt) {
+    for (const q of amb.list) {
+      q.ph += dt;
+      if (L.fx === "hotaru") {
+        q.dir += Math.sin(q.ph * 1.3 + q.rot) * dt * 1.6;
+        q.x += Math.cos(q.dir) * q.sp * dt;
+        q.y += Math.sin(q.dir) * q.sp * dt;
+        q.life -= dt;
+        if (q.life <= 0 || Math.hypot(q.x - C, q.y - C) < R0 + 20) spawn(q, L.fx, true);
+        continue;
+      }
+      if (q.z > 0) {
+        q.z = Math.max(0, q.z + q.vz * dt);
+        const sway = Math.sin(q.ph * 1.7 + q.rot) * (L.fx === "yuki" ? 10 : 18);
+        q.x += (q.vx + sway) * dt;
+        q.y += q.vy * dt;
+        q.rot += q.spin * dt;
+      } else {
+        q.rest -= dt;
+        q.a = Math.min(1, q.rest / 0.8);
+        if (q.rest <= 0) spawn(q, L.fx, true);
+      }
+    }
+  }
+  function petal(q) {
+    ctx.beginPath();
+    ctx.ellipse(0, 0, q.size, q.size * 0.62, 0, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,.35)";
+    ctx.beginPath();
+    ctx.ellipse(-q.size * 0.25, 0, q.size * 0.45, q.size * 0.22, 0, 0, TAU);
+    ctx.fill();
+  }
+  function leaf(q) {
+    const r = q.size, D = Math.PI / 180;
+    ctx.beginPath();
+    for (let i = 0; i < 5; i++) {
+      const a = -Math.PI / 2 + i * 72 * D;
+      const pts = [[a - 36 * D, 0.3], [a - 15 * D, 0.62], [a, 1], [a + 15 * D, 0.62]];
+      for (const [an, k] of pts) (i || k !== 0.3 ? ctx.lineTo : ctx.moveTo).call(ctx, Math.cos(an) * r * k, Math.sin(an) * r * k);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = "rgba(90,30,10,.45)";
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(0, r * 0.95);
+    ctx.stroke();
+  }
+  function drawAmbient(L) {
+    for (const q of amb.list) {
+      if (L.fx === "hotaru") {
+        const glow = 0.45 + 0.55 * Math.max(0, Math.sin(q.ph * 2.4 + q.rot * 3));
+        const g = ctx.createRadialGradient(q.x, q.y, 0, q.x, q.y, q.size * 7);
+        g.addColorStop(0, `rgba(230,255,140,${0.55 * glow})`);
+        g.addColorStop(1, "rgba(230,255,140,0)");
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(q.x, q.y, q.size * 7, 0, TAU);
+        ctx.fill();
+        ctx.globalAlpha = glow;
+        ctx.fillStyle = q.color;
+        ctx.beginPath();
+        ctx.arc(q.x, q.y, q.size, 0, TAU);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        continue;
+      }
+      const h = q.z * 46;
+      if (q.z > 0.02) {
+        ctx.globalAlpha = 0.16 * q.a;
+        ctx.fillStyle = "#1a0f08";
+        ctx.beginPath();
+        ctx.arc(q.x + h, q.y + h, q.size * 0.8, 0, TAU);
+        ctx.fill();
+      }
+      ctx.globalAlpha = (L.fx === "yuki" ? 0.85 : 0.92) * q.a;
+      ctx.fillStyle = q.color;
+      ctx.save();
+      ctx.translate(q.x, q.y);
+      ctx.rotate(q.rot);
+      const sc = 1 + q.z * 0.5;
+      ctx.scale(sc * (L.fx === "yuki" ? 1 : Math.max(0.25, Math.abs(Math.cos(q.ph * 3 + q.rot)))), sc);
+      if (L.fx === "yuki") {
+        ctx.beginPath();
+        ctx.arc(0, 0, q.size, 0, TAU);
+        ctx.fill();
+      } else if (L.fx === "momiji") leaf(q);
+      else petal(q);
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+  }
+  var LANTERNS = [];
+  for (let k = 0; k < 6; k++) {
+    const x = 320 + k * 154;
+    LANTERNS.push([x, 150], [x, W - 150]);
+  }
+  for (let k = 0; k < 4; k++) {
+    const y = 330 + k * 250;
+    if (Math.abs(y - C) > 120) LANTERNS.push([150, y], [W - 150, y]);
+  }
+  var nightGrad = null;
+  var nightKey = "";
+  function drawNight(g = ctx, x0 = V.x0, y0 = V.y0, x1 = V.x1, y1 = V.y1, t = G.t) {
+    const key = `${x0}|${y0}|${x1}|${y1}`;
+    let grad = g === ctx ? nightGrad : null;
+    if (!grad || key !== nightKey || g !== ctx) {
+      const R = Math.max(1e3, Math.hypot(Math.max(C - x0, x1 - C), Math.max(C - y0, y1 - C)));
+      grad = g.createRadialGradient(C, C, R0 + 10, C, C, R);
+      grad.addColorStop(0, "rgba(8,10,28,0)");
+      grad.addColorStop(Math.min(0.99, 260 / (R - R0 - 10)), "rgba(8,10,28,.58)");
+      grad.addColorStop(1, "rgba(6,8,22,.82)");
+      if (g === ctx) {
+        nightGrad = grad;
+        nightKey = key;
+      }
+    }
+    g.fillStyle = grad;
+    g.fillRect(x0, y0, x1 - x0, y1 - y0);
+    for (const [x, y] of LANTERNS) {
+      const fl = 0.85 + 0.15 * Math.sin(t * 7 + x * 0.05);
+      const gl = g.createRadialGradient(x, y, 4, x, y, 90);
+      gl.addColorStop(0, `rgba(255,176,90,${0.5 * fl})`);
+      gl.addColorStop(1, "rgba(255,150,60,0)");
+      g.fillStyle = gl;
+      g.beginPath();
+      g.arc(x, y, 90, 0, TAU);
+      g.fill();
+      g.fillStyle = "#c9472e";
+      g.beginPath();
+      g.arc(x, y, 15, 0, TAU);
+      g.fill();
+      g.fillStyle = `rgba(255,214,140,${0.75 * fl})`;
+      g.beginPath();
+      g.arc(x, y, 9, 0, TAU);
+      g.fill();
+      g.strokeStyle = "rgba(30,18,10,.8)";
+      g.lineWidth = 3;
+      g.beginPath();
+      g.arc(x, y, 15, 0, TAU);
+      g.stroke();
+    }
+  }
+  function grade(L, g = ctx, x0 = V.x0, y0 = V.y0, x1 = V.x1, y1 = V.y1) {
+    g.save();
+    for (const [op, color, a] of L.grade) {
+      g.globalCompositeOperation = op;
+      g.globalAlpha = a;
+      g.fillStyle = color;
+      g.fillRect(x0, y0, x1 - x0, y1 - y0);
+    }
+    g.restore();
+  }
+  function drawArenaUnder() {
+    const L = look();
+    if (!L) return;
+    grade(L);
+    if (L.night) drawNight();
+  }
+  function drawArenaOver(dt) {
+    const L = look();
+    ensure(L);
+    if (!L) return;
+    if (dt > 0) update(L, Math.min(dt, 0.1));
+    drawAmbient(L);
+  }
+  function arenaPreview(id, size = 128) {
+    const c = document.createElement("canvas");
+    c.width = c.height = size;
+    const draw = () => {
+      if (!(MAP.complete && MAP.naturalWidth)) {
+        setTimeout(draw, 100);
+        return;
+      }
+      const g = c.getContext("2d"), L = LOOKS[id];
+      const S = 1040, k = size / S, x0 = C - S / 2, y0 = C - S / 2;
+      g.setTransform(k, 0, 0, k, -x0 * k, -y0 * k);
+      g.drawImage(MAP, 0, 0, W, W);
+      g.lineWidth = 24;
+      g.strokeStyle = "#d4bf83";
+      g.beginPath();
+      g.arc(C, C, R0 + 10, 0, TAU);
+      g.stroke();
+      if (L) {
+        grade(L, g, x0, y0, x0 + S, y0 + S);
+        if (L.night) drawNight(g, x0, y0, x0 + S, y0 + S, 0);
+        const pal = PALETTE[L.fx];
+        let s = 7;
+        const r = () => {
+          s = s * 16807 % 2147483647;
+          return s / 2147483647;
+        };
+        for (let i = 0; i < (L.fx === "yuki" ? 70 : 26); i++) {
+          const x = x0 + r() * S, y = y0 + r() * S;
+          if (L.fx === "hotaru" && Math.hypot(x - C, y - C) < R0) continue;
+          g.fillStyle = pal[i % pal.length];
+          g.globalAlpha = L.fx === "hotaru" ? 0.9 : 0.85;
+          g.beginPath();
+          if (L.fx === "yuki" || L.fx === "hotaru") g.arc(x, y, L.fx === "yuki" ? 7 : 9, 0, TAU);
+          else g.ellipse(x, y, L.fx === "momiji" ? 20 : 15, L.fx === "momiji" ? 15 : 10, r() * TAU, 0, TAU);
+          g.fill();
+        }
+        g.globalAlpha = 1;
+      }
+    };
+    draw();
+    return c;
+  }
+
   // src/ui/career.js
   function wardrobe(backFn) {
     const best = save.career ? save.career.best : 0;
@@ -3362,17 +3685,46 @@ body.replaying .watch-bar { display: none; }
       });
       grid.append(b);
     });
+    syncArenas();
+    const pick = save.arena || "ryogoku";
+    const agrid = el("div", "swatches arenas");
+    const choose = (id) => {
+      save.arena = id;
+      persist();
+      Sound.click();
+      wardrobe(backFn);
+    };
+    for (const A of ARENAS) {
+      const ok = arenaUnlocked(A.id);
+      const b = el("button", "swatch" + (pick === A.id ? " sel" : ""));
+      b.type = "button";
+      b.title = A.desc;
+      b.append(
+        arenaPreview(A.id),
+        el("span", null, A.name),
+        el("small", null, !ok ? `Basho ${firstBashoFor(A.id)} en carrière` : pick === A.id ? "Choisie" : A.season)
+      );
+      b.disabled = !ok;
+      b.addEventListener("click", () => choose(A.id));
+      agrid.append(b);
+    }
+    const rnd2 = el("button", "swatch dice" + (pick === "hasard" ? " sel" : ""));
+    rnd2.type = "button";
+    rnd2.append(el("span", "dice-face", "?"), el("span", null, "Au hasard"), el("small", null, pick === "hasard" ? "Choisie" : "Parmi les tiennes"));
+    rnd2.addEventListener("click", () => choose("hasard"));
+    agrid.append(rnd2);
     showScreen({
       kanji: "締込",
       title: "Vestiaire",
-      lead: "Choisis ta ceinture. Monte dans le classement en mode Carrière pour en débloquer de nouvelles.",
-      body: [grid, list(mbtn("Retour", null, false, backFn, "quiet"))],
+      lead: "Choisis ta ceinture et ton arène. Monte au banzuke en carrière pour débloquer des ceintures ; chaque nouveau basho fait découvrir une arène.",
+      body: [el("p", "sub-h", "Ceinture"), grid, el("p", "sub-h", "Arène (hors carrière : chaque basho a la sienne)"), agrid, list(mbtn("Retour", null, false, backFn, "quiet"))],
       focus: ".swatch.sel",
       back: backFn
     });
   }
   function careerHub() {
     const c = career(), b = c.basho;
+    syncArenas();
     G.screen = "menu";
     G.mode = null;
     setNames("Rouge", "Est", "Bleu", "Ouest");
@@ -3407,7 +3759,7 @@ body.replaying .watch-bar { display: none; }
     showScreen({
       kanji: rk.kanji,
       title: rk.name,
-      lead: `Basho ${c.bashoNo}. Gagne au moins ${Math.floor(BASHO_DAYS / 2) + 1} combats sur ${BASHO_DAYS} pour monter au rang suivant.`,
+      lead: `Basho ${c.bashoNo} : ${bashoOf(c.bashoNo).name}, à ${bashoOf(c.bashoNo).city} (${arenaById(bashoOf(c.bashoNo).arena).name.toLowerCase()}). Gagne au moins ${Math.floor(BASHO_DAYS / 2) + 1} combats sur ${BASHO_DAYS} pour monter au rang suivant.`,
       body: [
         ranks,
         recordEl(b.results, b.day),
@@ -3469,7 +3821,10 @@ body.replaying .watch-bar { display: none; }
     newBasho(c);
     persist();
     const unlocked = SKINS.filter((s) => s.rank > bestBefore && s.rank <= c.best);
+    const newArenas = syncArenas().map((id) => arenaById(id).name);
+    persist();
     const rk = RANKS[c.rank];
+    const nb = bashoOf(c.bashoNo);
     showScreen({
       kanji: rk.kanji,
       title: rk.name,
@@ -3478,7 +3833,8 @@ body.replaying .watch-bar { display: none; }
         el("p", "verdict " + cls, verdict),
         recordEl(results, -1),
         unlocked.length ? el("p", "unlock", `Nouvelle${unlocked.length > 1 ? "s" : ""} ceinture${unlocked.length > 1 ? "s" : ""} au vestiaire : ${unlocked.map((s) => s.name).join(", ")}.`) : null,
-        list(mbtn("Basho suivant", `Basho ${c.bashoNo}`, true, careerHub), unlocked.length ? mbtn("Vestiaire", null, false, () => wardrobe(careerHub), "quiet") : null)
+        newArenas.length ? el("p", "unlock", `Nouvelle arène au vestiaire : ${newArenas.join(", ")}.`) : null,
+        list(mbtn("Basho suivant", `${nb.name}, ${nb.city}`, true, careerHub), unlocked.length || newArenas.length ? mbtn("Vestiaire", null, false, () => wardrobe(careerHub), "quiet") : null)
       ]
     });
   }
@@ -3782,6 +4138,7 @@ body.replaying .watch-bar { display: none; }
     G.skins[0] = save.skin;
     setNames("Toi", "Dojo", "Apprenti", `Leçon ${i + 1}`);
     resetMatchFx();
+    setArena("ryogoku");
     G.dojo = { i, L, count: 0, mem: {}, wait: 0, then: null, msg: "", frozen: false, ui: "" };
     setupAttempt();
     hideOverlay();
@@ -4123,7 +4480,7 @@ body.replaying .watch-bar { display: none; }
         mbtn("En ligne", "Partie rapide ou duel privé avec un code", false, onlineMenu),
         mbtn("2 joueurs", "Même clavier ou deux manettes", false, () => startMatch({ mode: "versus" })),
         mbtn("Contre l'IA", "Cinq adversaires, cinq styles", false, aiSelect),
-        mbtn("Vestiaire", "Choisir ta ceinture", false, () => wardrobe(menu)),
+        mbtn("Vestiaire", "Ceinture et arène", false, () => wardrobe(menu)),
         mbtn("Commandes", "Clavier, manette, tactile", false, () => controlsCard(menu))
       )]
     });
@@ -4202,6 +4559,7 @@ body.replaying .watch-bar { display: none; }
     const P = newPlayback(R);
     G.S = P.S;
     resetMatchFx();
+    setArena(R.meta.arena || "ryogoku");
     G.watch = Object.assign(P, { speed: 1, paused: false });
     G.lastReplay = R;
     hideOverlay();
@@ -4583,6 +4941,10 @@ body.replaying .watch-bar { display: none; }
       G.names = ["Toi", G.opp.name];
       setNames(RANKS[c.rank].name, "Est", G.opp.name, RANKS[G.opp.rank].name);
     }
+    if (opts.mode === "career") {
+      const b = bashoOf(career().bashoNo);
+      setArena(b.arena, `${b.name} · ${b.city}`);
+    } else setArena(pickArena());
     G.S = newMatch({ seed: Math.random() * 2 ** 31 | 0, win, ai });
     resetMatchFx();
     const shareNames = [G.names[0] === "Toi" ? cleanName(save.netName) || "Rouge" : G.names[0], G.names[1]];
@@ -4591,12 +4953,18 @@ body.replaying .watch-bar { display: none; }
       names: shareNames,
       skins: [G.skins[0], "blue"],
       win,
+      arena: G.arena,
       ai: [null, G.opp ? { style: G.opp.style, level: G.opp.level } : null]
     });
     hideOverlay();
     updateScore();
     setPauseLabel();
     handleEvents(G.S);
+  }
+  function setArena(id, label) {
+    const A = arenaById(id);
+    G.arena = A.id;
+    G.arenaLabel = label || (A.id === "ryogoku" ? null : `${A.name} · ${A.season}`);
   }
   function resetMatchFx() {
     G.watch = null;
@@ -5513,10 +5881,18 @@ body.replaying .watch-bar { display: none; }
     ctx.restore();
   }
   function drawStartHint(S) {
-    if (S.round !== 1 || G.mode === "watch") return;
-    const y = C - 160;
+    if (S.round !== 1) return;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
+    if (G.arenaLabel) {
+      ctx.font = '700 32px "Zen Kaku Gothic New", sans-serif';
+      ctx.fillStyle = "rgba(0,0,0,.45)";
+      ctx.fillText(G.arenaLabel, C + 2, C - 338 + 2);
+      ctx.fillStyle = "#ffd166";
+      ctx.fillText(G.arenaLabel, C, C - 338);
+    }
+    if (G.mode === "watch") return;
+    const y = C - 160;
     ctx.font = '700 30px "Zen Kaku Gothic New", sans-serif';
     if (G.padFamily) {
       const label = "Dash au signal";
@@ -5551,6 +5927,7 @@ body.replaying .watch-bar { display: none; }
     ctx.imageSmoothingEnabled = true;
     drawRing(S ? S.ring : R0, S ? S.p : null);
     drawCrowd();
+    drawArenaUnder();
     if (S) {
       drawPlayer(S.p[0], skinSheet(G.skins[0]), alpha);
       drawPlayer(S.p[1], skinSheet("bleu"), alpha);
@@ -5561,6 +5938,7 @@ body.replaying .watch-bar { display: none; }
       ctx.fillRect(q.x - 3, q.y - 3, 6, 6);
     }
     ctx.globalAlpha = 1;
+    drawArenaOver(dt);
     drawZabuton(dt);
     if (S && !S.view) {
       drawLabels(S, alpha);
@@ -6037,6 +6415,7 @@ body.replaying .watch-bar { display: none; }
   // src/main.js
   window.__dohyo = { newMatch, step, aiCommand, makeProfile, hashState, STYLES, NOCMD, G, careerBoutResult, startMatch, save, render, utchariReady, canUtchari, packIn, unpackIn, binds: () => ({ BIND, PAD }) };
   loadBinds();
+  syncArenas();
   Sound.muted = save.muted;
   syncMute();
   updateScore();

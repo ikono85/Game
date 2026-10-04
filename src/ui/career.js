@@ -2,7 +2,9 @@
  * Vestiaire et écrans de la carrière (basho, résultat du jour, classement de fin de basho).
  */
 import { Sound } from '../audio/sound.js';
-import { BASHO_DAYS, RANKS, career, newBasho } from '../game/career.js';
+import { BASHO_DAYS, RANKS, arenaUnlocked, career, newBasho, syncArenas } from '../game/career.js';
+import { ARENAS, arenaById, bashoOf, firstBashoFor } from '../game/arenalist.js';
+import { arenaPreview } from '../render/arenas.js';
 import { startMatch, statsTable } from '../game/match.js';
 import { shareButton } from '../game/watch.js';
 import { kimariteText } from '../sim/kimarite.js';
@@ -35,11 +37,31 @@ function wardrobe(backFn) {
     b.addEventListener('click', () => { save.skin = s.id; G.skins[0] = s.id; persist(); Sound.click(); wardrobe(backFn); });
     grid.append(b);
   });
+  // Arènes : pour les combats hors carrière (en carrière, chaque basho a la sienne)
+  syncArenas();
+  const pick = save.arena || 'ryogoku';
+  const agrid = el('div', 'swatches arenas');
+  const choose = id => { save.arena = id; persist(); Sound.click(); wardrobe(backFn); };
+  for (const A of ARENAS) {
+    const ok = arenaUnlocked(A.id);
+    const b = el('button', 'swatch' + (pick === A.id ? ' sel' : ''));
+    b.type = 'button'; b.title = A.desc;
+    b.append(arenaPreview(A.id), el('span', null, A.name),
+      el('small', null, !ok ? `Basho ${firstBashoFor(A.id)} en carrière` : pick === A.id ? 'Choisie' : A.season));
+    b.disabled = !ok;
+    b.addEventListener('click', () => choose(A.id));
+    agrid.append(b);
+  }
+  const rnd = el('button', 'swatch dice' + (pick === 'hasard' ? ' sel' : ''));
+  rnd.type = 'button';
+  rnd.append(el('span', 'dice-face', '?'), el('span', null, 'Au hasard'), el('small', null, pick === 'hasard' ? 'Choisie' : 'Parmi les tiennes'));
+  rnd.addEventListener('click', () => choose('hasard'));
+  agrid.append(rnd);
   showScreen({
     kanji: '締込',
     title: 'Vestiaire',
-    lead: 'Choisis ta ceinture. Monte dans le classement en mode Carrière pour en débloquer de nouvelles.',
-    body: [grid, list(mbtn('Retour', null, false, backFn, 'quiet'))],
+    lead: 'Choisis ta ceinture et ton arène. Monte au banzuke en carrière pour débloquer des ceintures ; chaque nouveau basho fait découvrir une arène.',
+    body: [el('p', 'sub-h', 'Ceinture'), grid, el('p', 'sub-h', 'Arène (hors carrière : chaque basho a la sienne)'), agrid, list(mbtn('Retour', null, false, backFn, 'quiet'))],
     focus: '.swatch.sel',
     back: backFn,
   });
@@ -47,6 +69,7 @@ function wardrobe(backFn) {
 
 function careerHub() {
   const c = career(), b = c.basho;
+  syncArenas();
   G.screen = 'menu'; G.mode = null;
   setNames('Rouge', 'Est', 'Bleu', 'Ouest'); updateScore();
   const rk = RANKS[c.rank];
@@ -67,7 +90,7 @@ function careerHub() {
   showScreen({
     kanji: rk.kanji,
     title: rk.name,
-    lead: `Basho ${c.bashoNo}. Gagne au moins ${Math.floor(BASHO_DAYS / 2) + 1} combats sur ${BASHO_DAYS} pour monter au rang suivant.`,
+    lead: `Basho ${c.bashoNo} : ${bashoOf(c.bashoNo).name}, à ${bashoOf(c.bashoNo).city} (${arenaById(bashoOf(c.bashoNo).arena).name.toLowerCase()}). Gagne au moins ${Math.floor(BASHO_DAYS / 2) + 1} combats sur ${BASHO_DAYS} pour monter au rang suivant.`,
     body: [ranks, recordEl(b.results, b.day), vs,
       list(mbtn('Combattre', 'Une manche, comme au vrai sumo', true, () => startMatch({ mode: 'career', opp: o })), row, reset)],
     back: menu,
@@ -112,7 +135,9 @@ function bashoEnd() {
   c.best = Math.max(c.best, c.rank);
   c.bashoNo++; c.basho = null; newBasho(c); persist();
   const unlocked = SKINS.filter(s => s.rank > bestBefore && s.rank <= c.best);
+  const newArenas = syncArenas().map(id => arenaById(id).name); persist();
   const rk = RANKS[c.rank];
+  const nb = bashoOf(c.bashoNo);
   showScreen({
     kanji: rk.kanji,
     title: rk.name,
@@ -121,7 +146,8 @@ function bashoEnd() {
       el('p', 'verdict ' + cls, verdict),
       recordEl(results, -1),
       unlocked.length ? el('p', 'unlock', `Nouvelle${unlocked.length > 1 ? 's' : ''} ceinture${unlocked.length > 1 ? 's' : ''} au vestiaire : ${unlocked.map(s => s.name).join(', ')}.`) : null,
-      list(mbtn('Basho suivant', `Basho ${c.bashoNo}`, true, careerHub), unlocked.length ? mbtn('Vestiaire', null, false, () => wardrobe(careerHub), 'quiet') : null),
+      newArenas.length ? el('p', 'unlock', `Nouvelle arène au vestiaire : ${newArenas.join(', ')}.`) : null,
+      list(mbtn('Basho suivant', `${nb.name}, ${nb.city}`, true, careerHub), unlocked.length || newArenas.length ? mbtn('Vestiaire', null, false, () => wardrobe(careerHub), 'quiet') : null),
     ],
   });
 }

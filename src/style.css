@@ -450,3 +450,10 @@ body.replaying .watch-bar { display: none; }
 .share-link { margin: 8px 0 4px; font-size: 14px; width: 100%; box-sizing: border-box; }
 .watch-bar .icon-btn { margin-top: 0; }
 .net-input.share-link { font: 700 14px/1.3 var(--font-body); max-width: none; padding: 8px 10px; }
+
+/* ---------- Vestiaire : arènes ---------- */
+.swatches.arenas { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.swatches.arenas canvas { width: 96px; height: 96px; border-radius: 4px; }
+.swatch.dice .dice-face { display: grid; place-items: center; width: 96px; height: 96px; border-radius: 4px;
+  background: rgba(28, 19, 13, .12); font: 400 48px/1 var(--font-display); color: var(--m-ink-soft); }
+@media (max-width: 480px) { .swatches.arenas canvas, .swatch.dice .dice-face { width: 72px; height: 72px; } }

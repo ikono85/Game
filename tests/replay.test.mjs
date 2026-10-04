@@ -13,7 +13,7 @@ const hashState = S => JSON.stringify([S.tick, S.score, S.round, Math.round(S.ri
 /** Un match joué comme dans le jeu : commandes compactées, enregistrées tick par tick. */
 function recordMatch(seed, a, b, win = 3, human = false) {
   const S = newMatch({ seed, win, ai: [makeProfile(a, 0.7), makeProfile(b, 0.7)] });
-  const R = newRecorder(S, { mode: 'ai', names: ['Rouge', 'Tetsuiwa'], skins: ['rouge', 'blue'], win,
+  const R = newRecorder(S, { mode: 'ai', names: ['Rouge', 'Tetsuiwa'], skins: ['rouge', 'blue'], win, arena: 'aki',
     ai: [human ? null : { style: a, level: 0.7 }, { style: b, level: 0.7 }] });
   let k = 0;
   // un « humain » scripté pour le joueur 1 : il tourne autour, dashe et garde de temps en temps
@@ -53,6 +53,7 @@ test('ralenti : le lien rejoue exactement le même match', async () => {
     assert.equal(P.S.matchWinner, S.matchWinner);
     assert.equal(P.diverged, 0);
     assert.deepEqual(back.meta.names, ['Rouge', 'Tetsuiwa']);
+    assert.equal(back.meta.arena, 'aki');
   }
 });
 

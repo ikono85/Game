@@ -6,7 +6,7 @@ import { Sound } from '../audio/sound.js';
 import { kimariteText } from '../sim/kimarite.js';
 import { decodeReplay, encodeReplay, newPlayback, playbackStep, replayReady } from './replayfile.js';
 import { G } from './state.js';
-import { resetMatchFx, statsTable } from './match.js';
+import { resetMatchFx, setArena, statsTable } from './match.js';
 import { handleEvents } from '../render/effects.js';
 import { $ } from '../ui/dom.js';
 import { setNames, updateScore } from '../ui/hud.js';
@@ -63,6 +63,7 @@ function startWatch(R) {
   const P = newPlayback(R);
   G.S = P.S;
   resetMatchFx();
+  setArena(R.meta.arena || 'ryogoku');
   G.watch = Object.assign(P, { speed: 1, paused: false });
   G.lastReplay = R;
   hideOverlay(); updateScore(); syncWatchBar();

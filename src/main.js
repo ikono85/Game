@@ -24,6 +24,7 @@ import { fit } from './render/view.js';
 import { STYLES, aiCommand, makeProfile } from './sim/ai.js';
 import { NOCMD, canUtchari, hashState, newMatch, step, utchariReady } from './sim/simulation.js';
 import { careerBoutResult } from './ui/career.js';
+import { syncArenas } from './game/career.js';
 import { updateScore } from './ui/hud.js';
 import { menu } from './ui/menus.js';
 import { syncMute } from './ui/pause.js';
@@ -34,6 +35,7 @@ import { openReplayLink } from './game/watch.js';
 window.__dohyo = { newMatch, step, aiCommand, makeProfile, hashState, STYLES, NOCMD, G, careerBoutResult, startMatch, save, render, utchariReady, canUtchari, packIn, unpackIn, binds: () => ({ BIND, PAD }) };
 
 loadBinds();                      // touches choisies par le joueur
+syncArenas();                     // arènes découvertes en carrière
 Sound.muted = save.muted; syncMute();
 updateScore();
 menu();

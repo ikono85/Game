@@ -8,6 +8,7 @@ import { BIND, PAD, keyName } from '../input/keyboard.js';
 import { drawYouMarker } from '../net/screens.js';
 import { CROWD, FRAME, SPRITE_SIZE, pickFrame, sheetReady, skinSheet } from './sprites.js';
 import { V, bgCache, buildBackground, extraSeats } from './view.js';
+import { drawArenaOver, drawArenaUnder } from './arenas.js';
 import { C, DASH_CD, GUARD_MAX, PI, R0, TAU, UT_BRACE } from '../sim/constants.js';
 import { canUtchari } from '../sim/simulation.js';
 import { ctx } from '../ui/dom.js';
@@ -229,9 +230,15 @@ function drawCounterPrompt(S, i, alpha) {
 
 /** Indice au tout premier départ : quelle touche pour le dash. */
 function drawStartHint(S) {
-  if (S.round !== 1 || G.mode === 'watch') return;
-  const y = C - 160;
+  if (S.round !== 1) return;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  if (G.arenaLabel) {                       // « Haru basho · Osaka »
+    ctx.font = '700 32px "Zen Kaku Gothic New", sans-serif';
+    ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillText(G.arenaLabel, C + 2, C - 338 + 2);
+    ctx.fillStyle = '#ffd166'; ctx.fillText(G.arenaLabel, C, C - 338);
+  }
+  if (G.mode === 'watch') return;
+  const y = C - 160;
   ctx.font = '700 30px "Zen Kaku Gothic New", sans-serif';
   if (G.padFamily) {
     const label = 'Dash au signal';
@@ -263,12 +270,14 @@ function render(S, alpha, dt, cam) {
   ctx.imageSmoothingEnabled = true;
   drawRing(S ? S.ring : R0, S ? S.p : null);
   drawCrowd();
+  drawArenaUnder();                                   // teinte de l'arène (printemps, nuit d'été…)
   if (S) { drawPlayer(S.p[0], skinSheet(G.skins[0]), alpha); drawPlayer(S.p[1], skinSheet('bleu'), alpha); }
   for (const q of G.particles) {
     ctx.globalAlpha = Math.max(0, q.life * 1.6);
     ctx.fillStyle = q.color; ctx.fillRect(q.x - 3, q.y - 3, 6, 6);
   }
   ctx.globalAlpha = 1;
+  drawArenaOver(dt);                                  // pétales, feuilles, neige, lucioles
   drawZabuton(dt);
   if (S && !S.view) {
     drawLabels(S, alpha); drawUtchariPrompt(S, alpha);

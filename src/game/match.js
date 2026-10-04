@@ -2,7 +2,7 @@
  * Match local : départ, tableau des stats, ralenti puis écran de résultat.
  */
 import { Sound } from '../audio/sound.js';
-import { RANKS, career } from './career.js';
+import { RANKS, career, pickArena } from './career.js';
 import { save } from './save.js';
 import { G, newStats } from './state.js';
 import { latch } from '../input/keyboard.js';
@@ -12,6 +12,7 @@ import { startReplay } from '../render/replay.js';
 import { STYLES, makeProfile } from '../sim/ai.js';
 import { newMatch } from '../sim/simulation.js';
 import { newRecorder } from './replayfile.js';
+import { arenaById, bashoOf } from './arenalist.js';
 import { KIMARITE, kimariteText } from '../sim/kimarite.js';
 import { cleanName } from '../net/netcode.js';
 import { shareButton, watchEnd } from './watch.js';
@@ -33,14 +34,23 @@ function startMatch(opts) {
     G.names = ['Toi', G.opp.name];
     setNames(RANKS[c.rank].name, 'Est', G.opp.name, RANKS[G.opp.rank].name);
   }
+  // l'arène : en carrière, celle du basho en cours ; sinon celle choisie au vestiaire
+  if (opts.mode === 'career') { const b = bashoOf(career().bashoNo); setArena(b.arena, `${b.name} · ${b.city}`); }
+  else setArena(pickArena());
   G.S = newMatch({ seed: (Math.random() * 2 ** 31) | 0, win, ai });
   resetMatchFx();
   // dans le ralenti partagé, « Toi » serait faux pour celui qui regarde : on met le nom de lutteur du joueur
   const shareNames = [G.names[0] === 'Toi' ? cleanName(save.netName) || 'Rouge' : G.names[0], G.names[1]];
-  G.recorder = newRecorder(G.S, { mode: opts.mode, names: shareNames, skins: [G.skins[0], 'blue'], win,
+  G.recorder = newRecorder(G.S, { mode: opts.mode, names: shareNames, skins: [G.skins[0], 'blue'], win, arena: G.arena,
     ai: [null, G.opp ? { style: G.opp.style, level: G.opp.level } : null] });
   hideOverlay(); updateScore(); setPauseLabel();
   handleEvents(G.S);
+}
+/** Arène du prochain combat, et le petit titre affiché au premier départ (« Haru basho · Osaka »). */
+function setArena(id, label) {
+  const A = arenaById(id);
+  G.arena = A.id;
+  G.arenaLabel = label || (A.id === 'ryogoku' ? null : `${A.name} · ${A.season}`);
 }
 function resetMatchFx() {
   G.watch = null; G.dojo = null; G.recorder = null;
@@ -109,4 +119,4 @@ function afterReplay(w) {
   }), delay);
 }
 
-export { onMatchEnd, resetMatchFx, startMatch, statsTable };
+export { onMatchEnd, resetMatchFx, setArena, startMatch, statsTable };

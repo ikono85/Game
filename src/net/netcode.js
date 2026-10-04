@@ -2,7 +2,9 @@
  * EN LIGNE : duel entre deux navigateurs (WebRTC via PeerJS), netcode à rollback.
  */
 import { Sound } from '../audio/sound.js';
-import { resetMatchFx } from '../game/match.js';
+import { resetMatchFx, setArena } from '../game/match.js';
+import { pickArena } from '../game/career.js';
+import { ARENA_IDS } from '../game/arenalist.js';
 import { save } from '../game/save.js';
 import { G } from '../game/state.js';
 import { humanCmd } from '../input/human.js';
@@ -215,7 +217,7 @@ function onNetData(m) {
 function hostStart() {
   const N = G.net;
   if (!N || N.role !== 'host' || N.pendingStart) return;
-  const st = { t: 'start', mid: ++N.midSeq, seed: (Math.random() * 2 ** 31) | 0, win: N.win, names: [N.myName, N.foeName], skin: save.skin };
+  const st = { t: 'start', mid: ++N.midSeq, seed: (Math.random() * 2 ** 31) | 0, win: N.win, names: [N.myName, N.foeName], skin: save.skin, arena: pickArena() };
   N.pendingStart = st;
   netSend(st);
 }
@@ -226,6 +228,7 @@ function guestGotStart(m) {
     mid: m.mid | 0, seed: m.seed | 0, win: [1, 2, 3].includes(m.win) ? m.win : 3,
     names: [cleanName(m.names && m.names[0]) || 'Adversaire', N.myName],
     skin: SKINS.some(s => s.id === m.skin && !s.hidden) ? m.skin : 'rouge',
+    arena: ARENA_IDS.includes(m.arena) ? m.arena : 'ryogoku',
   };
   N.win = st.win; N.foeName = st.names[0];
   netSend({ t: 'go', mid: st.mid });
@@ -257,12 +260,13 @@ function startOnlineMatch(st) {
   setNames(st.names[0], N.me === 0 ? 'Toi' : 'Est', st.names[1], N.me === 1 ? 'Toi' : 'Ouest');
   G.S = newMatch({ seed: st.seed, win: st.win, ai: [null, null] });
   resetMatchFx();
+  setArena(st.arena || 'ryogoku');                 // l'arène choisie par l'hôte, la même pour les deux
   hideOverlay(); updateScore(); setPauseLabel();
   handleEvents(G.S);
   const M = N.M = newNetMatch();
   M.snaps.set(0, { s: structuredClone(G.S), c: {} });
   // ralenti partageable : commandes et départs de manche, rangés par tick (réécrits si on resimule)
-  M.rec = { meta: { mode: 'online', names: G.names.slice(), skins: [st.skin, 'blue'], win: st.win }, head0: roundHead(G.S), inp: [], heads: new Map() };
+  M.rec = { meta: { mode: 'online', names: G.names.slice(), skins: [st.skin, 'blue'], win: st.win, arena: G.arena }, head0: roundHead(G.S), inp: [], heads: new Map() };
   G.last = performance.now();
   const early = N.early; N.early = [];
   for (const m of early) if (m.mid === N.mid) onNetData(m);

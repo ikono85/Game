@@ -5,6 +5,7 @@ import { save } from './save.js';
 import { SKINS } from '../render/sprites.js';
 import { clamp } from '../sim/constants.js';
 import { rand } from '../sim/simulation.js';
+import { ARENA_IDS, BASHO, bashoOf } from './arenalist.js';
 
 const RANKS = [
   { name: 'Jonokuchi', kanji: '序ノ口' }, { name: 'Jonidan', kanji: '序二段' }, { name: 'Sandanme', kanji: '三段目' },
@@ -44,6 +45,28 @@ function career() {
   if (!save.career.basho) newBasho(save.career);
   return save.career;
 }
+/**
+ * Arènes : Ryōgoku est toujours là ; les autres se découvrent en carrière, en atteignant le basho
+ * qui s'y déroule (Hatsu = hiver, Haru = printemps, Nagoya = nuit d'été, Aki = automne).
+ * Renvoie les arènes nouvellement débloquées.
+ */
+function syncArenas() {
+  const have = new Set(Array.isArray(save.arenas) ? save.arenas : []);
+  have.add('ryogoku');
+  const fresh = [];
+  const n = save.career ? Math.min(save.career.bashoNo, BASHO.length) : 0;
+  for (let k = 1; k <= n; k++) { const id = bashoOf(k).arena; if (!have.has(id)) { have.add(id); fresh.push(id); } }
+  save.arenas = ARENA_IDS.filter(id => have.has(id));
+  return fresh;
+}
+const arenaUnlocked = id => (save.arenas || ['ryogoku']).includes(id);
+/** Arène des modes libres : celle choisie au vestiaire, ou une au hasard parmi celles débloquées. */
+function pickArena() {
+  const pick = save.arena || 'ryogoku';
+  if (pick === 'hasard') { const l = save.arenas || ['ryogoku']; return l[(Math.random() * l.length) | 0]; }
+  return arenaUnlocked(pick) ? pick : 'ryogoku';
+}
+
 const unlockedSkins = () => SKINS.filter(s => s.rank <= (save.career ? save.career.best : 0));
 
-export { BASHO_DAYS, RANKS, SHIKONA, career, newBasho };
+export { BASHO_DAYS, RANKS, SHIKONA, arenaUnlocked, career, newBasho, pickArena, syncArenas };
