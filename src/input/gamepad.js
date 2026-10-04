@@ -3,6 +3,7 @@
  */
 import { Sound } from '../audio/sound.js';
 import { G } from '../game/state.js';
+import { skipIntro } from '../ui/versus.js';
 import { PAD, inPlay, latch } from './keyboard.js';
 import { endReplay } from '../render/replay.js';
 import { capturePad } from '../ui/controls.js';
@@ -74,13 +75,14 @@ function pollPads() {
     for (const p of ps) if (padEdge(p, 0) || padEdge(p, 1) || padEdge(p, 9)) { endReplay(); return; }
     return;
   }
+  if (G.intro) { for (const p of ps) if (padEdge(p, 0) || padEdge(p, 1) || padEdge(p, 9)) skipIntro(); return; }
   // Menus : croix/stick pour naviguer, A pour valider, B pour revenir, Start pour la pause
   for (const p of ps) {
     if (padEdge(p, 9)) togglePause();
     if (!ov.hidden) {
       if (padEdge(p, 1) && G.back) { G.back(); return; }
-      const ax = p.axes[1] || 0, key = p.index + ':ax';
-      const dir = btn(p, 12) || ax < -0.6 ? -1 : btn(p, 13) || ax > 0.6 ? 1 : 0;
+      const ax = p.axes[1] || 0, ah = p.axes[0] || 0, key = p.index + ':ax';
+      const dir = btn(p, 12) || btn(p, 14) || ax < -0.6 || ah < -0.6 ? -1 : btn(p, 13) || btn(p, 15) || ax > 0.6 || ah > 0.6 ? 1 : 0;
       if (dir && padPrev[key] !== dir) moveFocus(dir);
       padPrev[key] = dir;
       if (padEdge(p, 0) && document.activeElement && card.contains(document.activeElement)) document.activeElement.click();

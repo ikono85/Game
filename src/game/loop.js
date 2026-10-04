@@ -17,6 +17,7 @@ import { playbackStep, recordTick } from './replayfile.js';
 import { dojoAfter, dojoCmd } from './dojo.js';
 import { ov } from '../ui/dom.js';
 import { hud } from '../ui/hud.js';
+import { introTick } from '../ui/versus.js';
 
 /**
  * Un tick d'une partie locale : commandes (humain, IA, mannequin du dojo ou ralenti partagé),
@@ -67,6 +68,11 @@ function frame(now) {
   if (G.replay) {                          // ralenti du coup gagnant : la simulation est arrêtée
     if (Sound.ctx) Sound.crowdLevel(0.04 + 0.12 * Math.min(1.5, G.cheer));
     updateReplay(dt); hud(); requestAnimationFrame(frame); return;
+  }
+  if (G.intro && introTick(dt)) {            // écran « VS » : tout attend, l'arène est déjà prête derrière
+    G.last = now;
+    if (ov.hidden) render(G.S, 1, dt);
+    hud(); requestAnimationFrame(frame); return;
   }
   const online = G.mode === 'online';
   if (online) { if (G.net) netFrame(dt); }

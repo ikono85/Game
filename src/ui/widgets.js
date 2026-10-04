@@ -6,6 +6,7 @@ import { BASHO_DAYS } from '../game/career.js';
 import { G } from '../game/state.js';
 import { padBadge } from '../input/gamepad.js';
 import { card, ov } from './dom.js';
+import { endIntro } from './versus.js';
 
 function el(tag, cls, text) {
   const e = document.createElement(tag);
@@ -20,8 +21,9 @@ function el(tag, cls, text) {
  * tampon rouge pour les résultats (seal : 'shu' | 'ink' | 'blue').
  * Les boutons « Retour » des listes sont retirés quand l'écran a un retour : la barre du bas s'en charge.
  */
-function showScreen({ kanji, title, lead, body = [], focus, seal, back = null }) {
+function showScreen({ kanji, title, lead, body = [], focus, seal, back = null, cls = '' }) {
   G.back = back; G.capture = null;
+  endIntro();                                         // un écran (abandon, déconnexion…) passe devant l'écran VS
   const k = el('div', 'scr-kanji');
   k.setAttribute('aria-hidden', 'true');
   if (seal) { k.classList.add('seal', seal); k.textContent = kanji; }
@@ -38,6 +40,7 @@ function showScreen({ kanji, title, lead, body = [], focus, seal, back = null })
   const info = el('div', 'scr-info');
   info.setAttribute('aria-hidden', 'true');           // le lecteur d'écran lit déjà le bouton lui-même
   card.replaceChildren(k, main, info, bottomBar(back));
+  card.className = 'card' + (cls ? ' ' + cls : '');
   ov.classList.remove('title');                       // on quitte l'écran titre s'il était affiché
   ov.hidden = false; ov.scrollTop = 0;
   document.body.classList.add('menu-open');
@@ -83,13 +86,13 @@ card.addEventListener('pointerover', e => {           // la souris choisit, comm
   if (b && document.activeElement !== b) b.focus({ preventScroll: true });
 });
 addEventListener('keydown', e => {                    // flèches haut et bas dans les menus
-  if (ov.hidden || ov.classList.contains('title') || G.capture || (e.code !== 'ArrowUp' && e.code !== 'ArrowDown')) return;
+  if (ov.hidden || ov.classList.contains('title') || G.capture || !['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) return;
   const tag = e.target && e.target.tagName;
   if (tag === 'INPUT' || tag === 'TEXTAREA') return;
   const items = Array.from(card.querySelectorAll('.scr-main button:not(:disabled)'));
   if (!items.length) return;
   e.preventDefault();
-  const i = items.indexOf(document.activeElement), d = e.code === 'ArrowUp' ? -1 : 1;
+  const i = items.indexOf(document.activeElement), d = e.code === 'ArrowUp' || e.code === 'ArrowLeft' ? -1 : 1;
   const next = items[i < 0 ? 0 : (i + d + items.length) % items.length];
   next.focus({ focusVisible: true });
   next.scrollIntoView({ block: 'nearest' });

@@ -16,8 +16,10 @@ Le jeu s'ouvre sur l'écran titre (Jouer, Options, Quitter). « Jouer » mène a
 menu principal, façon jeu de combat : cinq grands choix (Carrière, Combat, En
 ligne, Dojo, Vestiaire), la description du choix en cours dans un bandeau, les
 touches et « Retour » dans la barre du bas. « Combat » regroupe le match contre
-l'IA et le 2 joueurs ; « Options » (écran titre) le son, les commandes et le
-vestiaire.
+l'IA (choix de l'adversaire sur une rangée de portraits, avec sa fiche en grand)
+et le 2 joueurs ; « Options » (écran titre) le son, les commandes et le
+vestiaire. Chaque combat s'ouvre sur un écran « VS » (passable d'une touche,
+sauf en ligne) ; le bandeau du match est en plaques noires coupées en biais.
 
 - **Carrière** — monte le banzuke du Jonokuchi au Yokozuna. Un basho = 7 jours,
   un combat en une manche par jour. Majorité de victoires (kachi-koshi) =

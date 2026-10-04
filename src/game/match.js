@@ -20,6 +20,8 @@ import { careerBoutResult } from '../ui/career.js';
 import { setNames, updateScore } from '../ui/hud.js';
 import { menu } from '../ui/menus.js';
 import { el, hideOverlay, list, mbtn, showScreen } from '../ui/widgets.js';
+import { versusIntro } from '../ui/versus.js';
+import { LOOKS } from '../render/portrait.js';
 
 function startMatch(opts) {
   G.mode = opts.mode; G.opp = opts.opp || null;
@@ -45,6 +47,22 @@ function startMatch(opts) {
     ai: [null, G.opp ? { style: G.opp.style, level: G.opp.level } : null] });
   hideOverlay(); updateScore(); setPauseLabel();
   handleEvents(G.S);
+  versusIntro(introInfo(opts.mode));
+}
+/** Ce qu'affiche l'écran « VS » : les deux lutteurs, l'arène et le format. */
+function introInfo(mode) {
+  const where = G.arenaLabel || arenaById(G.arena).name, fmt = G.S.win === 1 ? 'Une manche' : `Premier à ${G.S.win} manches`;
+  if (mode === 'versus') {
+    return { left: { name: 'Rouge', sub: 'Joueur 1 · Est', skin: G.skins[0] }, right: { name: 'Bleu', sub: 'Joueur 2 · Ouest', skin: 'bleu' }, footer: `${where} · ${fmt}` };
+  }
+  const o = G.opp, look = LOOKS[o.style] || {}, me = cleanName(save.netName);
+  const right = { name: o.name, skin: 'bleu', pose: o.style, kanji: look.kanji, color: look.color,
+    sub: mode === 'career' ? `${RANKS[o.rank].name} · ${STYLES[o.style].label}` : STYLES[o.style].label, stars: mode === 'ai' ? STYLES[o.style].stars : 0 };
+  if (mode === 'career') {
+    const c = career();
+    return { left: { name: me || 'Toi', sub: RANKS[c.rank].name, skin: G.skins[0] }, right, footer: `${where} · jour ${c.basho.day + 1} sur 7 · ${fmt}` };
+  }
+  return { left: { name: me || 'Rouge', sub: 'Toi · Est', skin: G.skins[0] }, right, footer: `${where} · ${fmt}` };
 }
 /** Arène du prochain combat, et le petit titre affiché au premier départ (« Haru basho · Osaka »). */
 function setArena(id, label) {

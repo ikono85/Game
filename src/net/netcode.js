@@ -4,9 +4,10 @@
 import { Sound } from '../audio/sound.js';
 import { resetMatchFx, setArena } from '../game/match.js';
 import { pickArena } from '../game/career.js';
-import { ARENA_IDS } from '../game/arenalist.js';
+import { ARENA_IDS, arenaById } from '../game/arenalist.js';
 import { save } from '../game/save.js';
 import { G } from '../game/state.js';
+import { endIntro, versusIntro } from '../ui/versus.js';
 import { humanCmd } from '../input/human.js';
 import { onlineMenu, onlineResult, searchingScreen, setPauseLabel, waitingScreen } from './screens.js';
 import { VFX, handleEvents, throwZabuton } from '../render/effects.js';
@@ -172,6 +173,7 @@ function netTimer(N) {
 /** Onglet caché : plus d'images, mais le combat continue (sinon l'adversaire resterait figé). */
 function hiddenStep() {
   if (G.mode !== 'online' || G.screen !== 'match' || G.replay || !G.net || !G.net.M) return;
+  if (G.intro) endIntro();                           // pas d'écran VS dans un onglet caché
   const now = performance.now();
   if (now - G.last < 8) return;
   const dt = Math.min(2, (now - G.last) / 1000);
@@ -268,6 +270,13 @@ function startOnlineMatch(st) {
   // ralenti partageable : commandes et départs de manche, rangés par tick (réécrits si on resimule)
   M.rec = { meta: { mode: 'online', names: G.names.slice(), skins: [st.skin, 'blue'], win: st.win, arena: G.arena }, head0: roundHead(G.S), inp: [], heads: new Map() };
   G.last = performance.now();
+  // l'écran « VS » : les deux navigateurs l'affichent le même temps, et ne peuvent pas le passer
+  versusIntro({
+    left: { name: st.names[0], sub: N.me === 0 ? 'Toi · Est' : 'Est', skin: st.skin },
+    right: { name: st.names[1], sub: N.me === 1 ? 'Toi · Ouest' : 'Ouest', skin: 'bleu' },
+    footer: `${G.arenaLabel || arenaById(G.arena).name} · ${st.win === 1 ? 'Une manche' : `Premier à ${st.win} manches`}`,
+    skippable: false,
+  });
   const early = N.early; N.early = [];
   for (const m of early) if (m.mid === N.mid) onNetData(m);
 }

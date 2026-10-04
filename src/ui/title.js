@@ -57,6 +57,7 @@ function titleScreen() {
     art.append(b);
   }
   card.replaceChildren(bg, art);
+  card.className = 'card';
   ov.classList.add('title');
   ov.hidden = false; ov.scrollTop = 0;
   document.body.classList.add('menu-open');

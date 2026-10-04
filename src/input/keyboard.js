@@ -5,6 +5,7 @@
 import { Sound } from '../audio/sound.js';
 import { persist, save } from '../game/save.js';
 import { G } from '../game/state.js';
+import { skipIntro } from '../ui/versus.js';
 import { endReplay } from '../render/replay.js';
 import { captureKey } from '../ui/controls.js';
 import { ov } from '../ui/dom.js';
@@ -88,12 +89,13 @@ const anyHeld = codes => codes.some(c => held.has(c));
 const solo = () => G.mode === 'ai' || G.mode === 'career' || G.mode === 'online' || G.mode === 'dojo';
 // En solo, les deux jeux de touches contrôlent le joueur rouge.
 const bindsFor = i => solo() ? (i === 0 ? BIND : []) : [BIND[i]];
-const inPlay = () => G.screen === 'match' && !G.paused && ov.hidden && G.S && G.S.phase !== 'matchEnd';
+const inPlay = () => G.screen === 'match' && !G.paused && !G.intro && ov.hidden && G.S && G.S.phase !== 'matchEnd';
 
 addEventListener('keydown', e => {
   Sound.init();
   if (G.capture) { captureKey(e); return; }               // « Commandes » : on attend la nouvelle touche
   if (G.replay) { e.preventDefault(); if (!e.repeat) endReplay(); return; }
+  if (G.intro) { if (!e.repeat && ['Enter', 'Space', 'Escape', 'NumpadEnter'].includes(e.code)) { e.preventDefault(); skipIntro(); } return; }
   const tag = e.target && e.target.tagName;
   if ((tag === 'INPUT' || tag === 'TEXTAREA') && e.code !== 'Escape') return;   // on tape un nom ou un code
   if (e.code === 'Escape') { if (!ov.hidden && G.back) G.back(); else togglePause(); return; }
