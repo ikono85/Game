@@ -28,7 +28,7 @@ import { hideOverlay, list, mbtn, showScreen } from '../ui/widgets.js';
 // prédit (il continue ce qu'il faisait) ; quand la vraie diffère, on revient à l'état sauvegardé et
 // on resimule jusqu'à maintenant (rollback). Math.sin, Math.exp… peuvent différer d'un navigateur
 // à l'autre au dernier chiffre près : l'hôte envoie donc son état toutes les 0,5 s pour corriger.
-const NET_VER = 1;
+const NET_VER = 2;                       // 2 : saisie de la ceinture (la simulation a changé)
 const NET_DELAY = 2;           // mes commandes s'appliquent 2 ticks plus tard (17 ms) : moins de corrections
 const NET_MAX_AHEAD = 40;      // plus de 0,33 s d'avance sur ce qu'on sait de l'adversaire : on l'attend
 const NET_SYNC_EVERY = 60;     // l'hôte envoie son état toutes les 0,5 s

@@ -997,7 +997,7 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
   <p class="dj-msg" id="djMsg"></p>
 </div>
 
-<div class="touch"><button id="tguard" type="button">Garde</button><button id="tfeint" type="button">Feinte</button><button id="tdash" type="button">Dash</button></div>
+<div class="touch"><button id="tguard" type="button">Garde</button><button id="tfeint" type="button">Feinte</button><button id="tgrab" type="button">Saisie</button><button id="tdash" type="button">Dash</button></div>
 
 <script>
 (() => {
@@ -1041,6 +1041,21 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
   var UT_THROW = 520;
   var UT_COST = 0.5;
   var UT_FAIL_STUN = 0.5;
+  var GRAB_RANGE = 18;
+  var GRAB_FACE = 0.55;
+  var GRAB_CD = 1.1;
+  var GRAB_MISS_CD = 0.45;
+  var GRAB_FAIL_STUN = 0.35;
+  var CLINCH_MAX = 2.6;
+  var CLINCH_PUSH = 1400;
+  var CLINCH_RESIST = 800;
+  var CLINCH_DIG = 1.5;
+  var THROW_WIND = 0.26;
+  var THROW_SPEED = 470;
+  var THROW_STUN = 0.45;
+  var THROW_FAIL_STUN = 0.45;
+  var BREAK_PUSH = 420;
+  var BREAK_COST = 0.45;
   var PI = Math.PI;
   var TAU = PI * 2;
   var COLORS = { red: "#d2412f", blue: "#2f6fb3" };
@@ -1200,7 +1215,7 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
   };
 
   // src/game/state.js
-  var newStats = () => ({ dash: 0, dashHit: 0, block: 0, feint: 0, matta: 0, best: null, hold: 0, utchari: 0, counter: 0, henka: 0, henkaTry: 0, kim: [] });
+  var newStats = () => ({ dash: 0, dashHit: 0, block: 0, feint: 0, matta: 0, best: null, hold: 0, utchari: 0, counter: 0, henka: 0, henkaTry: 0, grab: 0, nage: 0, kim: [] });
   var G = {
     screen: "menu",
     // 'menu' | 'match'
@@ -1621,6 +1636,7 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
       return [ROW.utchari, t < UT_BRACE + UT_SWING + 0.06 ? 6 : 7];
     }
     if (p.fallT >= 0) return [ROW.fall, Math.min(8, Math.floor(p.fallT * 10))];
+    if (p.noRegen) return [ROW.guard, 1 + Math.floor(p.breath * 14) % 8];
     if (p.dashT > 0 || p.fakeT > 0) return [ROW.dash, Math.min(6, Math.floor((1 - Math.max(p.dashT, p.fakeT) / DASH_T) * 7))];
     if (p.guard || p.hold) return [ROW.guard, 1 + Math.floor(p.breath * 12) % 8];
     if (Math.hypot(p.vx, p.vy) > 40) return [ROW.walk, Math.floor(p.walk * 2.5) % 10];
@@ -1742,7 +1758,11 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
       adapt: 0,
       holdP: 0.15,
       utchariP: 0,
-      counterP: 0
+      counterP: 0,
+      grabP: 0.08,
+      throwP: 0.25,
+      breakP: 0.35,
+      digP: 0.2
     },
     kabe: {
       id: "kabe",
@@ -1769,7 +1789,11 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
       center: true,
       holdP: 0.4,
       utchariP: 0,
-      counterP: 0.6
+      counterP: 0.6,
+      grabP: 0.4,
+      throwP: 0.3,
+      breakP: 0.25,
+      digP: 0.75
     },
     kitsune: {
       id: "kitsune",
@@ -1793,7 +1817,11 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
       holdP: 0.55,
       utchariP: 0.07,
       counterP: 0.5,
-      henkaP: 0.12
+      henkaP: 0.12,
+      grabP: 0.2,
+      throwP: 0.55,
+      breakP: 0.5,
+      digP: 0.4
     },
     mai: {
       id: "mai",
@@ -1819,7 +1847,11 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
       holdP: 0.5,
       utchariP: 0.07,
       counterP: 0.4,
-      henkaP: 0.45
+      henkaP: 0.45,
+      grabP: 0.1,
+      throwP: 0.5,
+      breakP: 0.65,
+      digP: 0.3
     },
     yokozuna: {
       id: "yokozuna",
@@ -1843,7 +1875,11 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
       holdP: 0.9,
       utchariP: 0.3,
       counterP: 0.85,
-      henkaP: 0.15
+      henkaP: 0.15,
+      grabP: 0.32,
+      throwP: 0.6,
+      breakP: 0.7,
+      digP: 0.6
     }
   };
   var STYLE_ORDER = ["oshi", "kabe", "kitsune", "mai", "yokozuna"];
@@ -1884,7 +1920,13 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
       utSeen: -1,
       ctrAt: -1,
       ctrOK: false,
-      henkaUntil: 0
+      henkaUntil: 0,
+      clinchSeen: -1,
+      clinchPlan: "",
+      clinchAt: 0,
+      digNow: false,
+      thrCtrAt: -1,
+      thrCtrOK: false
     };
   }
   function aiCommand(S, i) {
@@ -1898,7 +1940,7 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
     if (!P || !m) return NOCMD;
     const me = S.p[i], foe = S.p[1 - i];
     const tk = S.tick;
-    const cmd = { mx: 0, my: 0, dash: false, feint: false, guard: false };
+    const cmd = { mx: 0, my: 0, dash: false, feint: false, guard: false, grab: false };
     if (S.phase === "shikiri") {
       if (!m.mattaDone) {
         m.mattaDone = true;
@@ -1920,6 +1962,9 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
       return cmd;
     }
     m.ctrAt = -1;
+    if (S.clinch) return clinchDecide(S, i, P, m, cmd);
+    m.clinchSeen = -1;
+    m.thrCtrAt = -1;
     if (S.roundT < DT * 0.5) {
       m.tachiaiAt = rand(S) < P.tachiaiP ? tk + Math.round(P.react * (0.6 + rand(S) * 0.6) * SIM_HZ) : -1;
     }
@@ -2056,6 +2101,7 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
         const foeNoDash = foe.cd > 0.5;
         const punish = tk < m.punishUntil;
         const wantAttack = punish || (P.id === "oshi" ? rand(S) < 0.8 : P.id === "kabe" ? counter || foeNoDash || foeEdge > 0.8 || rand(S) < impatience * 0.5 : patience > 0 && !foeExposed ? rand(S) < (1 - patience) * 0.5 : rand(S) < 0.35 + 0.4 * P.level + (foeEdge > 0.75 ? 0.3 : 0));
+        if (me.grabCd <= 0 && !charging(foe) && grabReach(S, i) && rand(S) < P.grabP * (foe.guard ? 1.6 : 1)) m.wantGrab = true;
         const foeCanUtchari = (foe.hold || foeEdge > 0.97) && foe.stamina > 0.8 && foe.cd <= 0;
         if (wantAttack && P.adapt && foeCanUtchari) {
         } else if (wantAttack) {
@@ -2072,7 +2118,59 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
     cmd.my = m.my;
     if (m.wantDash && me.cd <= 0) cmd.dash = true;
     if (m.wantFeint && me.fakeCd <= 0) cmd.feint = true;
-    m.wantDash = m.wantFeint = false;
+    if (m.wantGrab) {
+      cmd.grab = true;
+      cmd.dash = cmd.feint = false;
+    }
+    m.wantDash = m.wantFeint = m.wantGrab = false;
+    return cmd;
+  }
+  function clinchDecide(S, i, P, m, cmd) {
+    const K = S.clinch, me = S.p[i], foe = S.p[1 - i], tk = S.tick;
+    const mx = me.x - C, my = me.y - C, md = Math.hypot(mx, my) || 1;
+    const fx = foe.x - C, fy = foe.y - C, fd = Math.hypot(fx, fy) || 1;
+    if (m.clinchSeen < 0) {
+      m.clinchSeen = tk;
+      m.clinchAt = tk + Math.round(P.react * SIM_HZ * (0.8 + rand(S) * 0.5));
+      m.clinchPlan = "";
+    }
+    if (K.a === i) {
+      cmd.mx = fx / fd * 0.8 + (foe.x - me.x) / 80;
+      cmd.my = fy / fd * 0.8 + (foe.y - me.y) / 80;
+      if (K.thr < 0 && me.cd <= 0 && tk >= m.clinchAt && tk >= m.nextDecide) {
+        m.nextDecide = tk + Math.max(1, Math.round(SIM_HZ / P.rate));
+        const near = fd / S.ring > 0.78, late = K.t > 1.9;
+        if ((near || late) && rand(S) < P.throwP * (near ? 0.55 : 0.3)) {
+          const dx = foe.x - me.x, dy = foe.y - me.y, l = Math.hypot(dx, dy) || 1, sx = -dy / l, sy = dx / l;
+          const side2 = sx * fx + sy * fy >= 0 ? 1 : -1;
+          cmd.mx = sx * side2;
+          cmd.my = sy * side2;
+          cmd.dash = true;
+        }
+      }
+      return cmd;
+    }
+    if (K.thr >= 0) {
+      if (m.thrCtrAt < 0) {
+        m.thrCtrAt = tk + Math.round(P.react * SIM_HZ * (0.7 + rand(S) * 0.4));
+        m.thrCtrOK = rand(S) < (P.counterP || 0);
+      }
+      if (m.thrCtrOK && tk >= m.thrCtrAt) cmd.guard = true;
+      return cmd;
+    }
+    m.thrCtrAt = -1;
+    cmd.mx = -mx / md;
+    cmd.my = -my / md;
+    const edge = md / S.ring;
+    if (tk >= m.clinchAt && tk >= m.nextDecide) {
+      m.nextDecide = tk + Math.max(1, Math.round(SIM_HZ / P.rate));
+      if (!m.clinchPlan) m.clinchPlan = rand(S) < P.digP ? "dig" : "free";
+      if (me.cd <= 0 && (edge > 0.7 || m.clinchPlan === "free") && rand(S) < P.breakP * (edge > 0.7 ? 1.4 : 0.5)) {
+        cmd.dash = true;
+        return cmd;
+      }
+    }
+    if (m.clinchPlan === "dig" && me.stamina > 0.4 && edge > 0.45) cmd.guard = true;
     return cmd;
   }
 
@@ -2124,10 +2222,13 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
       touchT: 9,
       henkaT: 0,
       whiffT: 9,
-      lockT: 0
+      lockT: 0,
+      grabCd: 0,
+      nageT: 0,
+      noRegen: false
     };
   }
-  var NOCMD = Object.freeze({ mx: 0, my: 0, dash: false, feint: false, guard: false });
+  var NOCMD = Object.freeze({ mx: 0, my: 0, dash: false, feint: false, guard: false, grab: false });
   function newMatch(cfg) {
     const S = {
       seed: cfg.seed | 0,
@@ -2146,7 +2247,8 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
       ring: R0,
       roundT: 0,
       signalAt: 0,
-      rn: 0
+      rn: 0,
+      clinch: null
     };
     startRound(S);
     return S;
@@ -2159,6 +2261,7 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
     S.phase = "shikiri";
     S.phaseT = 0;
     S.winner = -1;
+    S.clinch = null;
     S.signalAt = 1.4 + rand(S) * 1.1;
     S.mem = [S.ai[0] ? aiMem() : null, S.ai[1] ? aiMem() : null];
     S.events.push({ type: "roundStart", round: S.round });
@@ -2218,7 +2321,7 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
         p.guardCd = 1.2;
         p.stamina = 0;
       }
-    } else if (!p.hold) {
+    } else if (!p.hold && !p.noRegen) {
       p.stamina = Math.min(GUARD_MAX, p.stamina + DT * 0.8);
       p.guardCd = Math.max(0, p.guardCd - DT);
     }
@@ -2239,6 +2342,8 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
     p.fakeT = Math.max(0, p.fakeT - DT);
     p.fakeCd = Math.max(0, p.fakeCd - DT);
     p.stun = Math.max(0, p.stun - DT);
+    p.grabCd = Math.max(0, p.grabCd - DT);
+    p.nageT = Math.max(0, p.nageT - DT);
     p.squash = Math.max(0, p.squash - DT * 4);
     p.walk += sp * DT / 45;
     p.breath += DT;
@@ -2289,7 +2394,7 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
   }
   function utchariReady(S, i) {
     const p = S.p[i], o = S.p[1 - i];
-    if (S.phase !== "play" || p.utT >= 0 || o.utT >= 0 || p.cd > 0 || p.stun > 0 || p.guard || p.stamina < 0.15) return false;
+    if (S.phase !== "play" || S.clinch || p.utT >= 0 || o.utT >= 0 || p.cd > 0 || p.stun > 0 || p.guard || p.stamina < 0.15) return false;
     const ex = p.x - C, ey = p.y - C, dist2 = Math.hypot(ex, ey) || 1;
     if (dist2 < S.ring - 14) return false;
     const vout = (p.vx * ex + p.vy * ey) / dist2;
@@ -2303,7 +2408,7 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
   }
   function canUtchari(S, i) {
     const p = S.p[i], o = S.p[1 - i];
-    if (S.phase !== "play" || S.tick - p.utReadyTick > 54) return false;
+    if (S.phase !== "play" || S.clinch || S.tick - p.utReadyTick > 54) return false;
     if (p.utT >= 0 || o.utT >= 0 || p.cd > 0 || p.stun > 0 || p.guard || p.stamina < 0.15) return false;
     if (o.guard && Math.cos(o.face) * (p.x - o.x) + Math.sin(o.face) * (p.y - o.y) > 0) return false;
     return Math.hypot(o.x - p.x, o.y - p.y) < p.r + o.r + 110 && Math.hypot(p.x - C, p.y - C) > S.ring - 50;
@@ -2375,7 +2480,7 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
   var swinging = (p) => p.utT >= 0 && p.utT < UT_BRACE + UT_SWING;
   function canHenka(S, i, c) {
     const p = S.p[i], o = S.p[1 - i];
-    if (S.phase !== "play" || p.cd > 0 || p.guard || p.stun > 0 || p.utT >= 0 || o.utT >= 0 || !charging(o)) return false;
+    if (S.phase !== "play" || S.clinch || p.cd > 0 || p.guard || p.stun > 0 || p.utT >= 0 || o.utT >= 0 || !charging(o)) return false;
     const dx = p.x - o.x, dy = p.y - o.y, d = Math.hypot(dx, dy) || 1;
     if (d > p.r + o.r + HENKA_RANGE || d < p.r + o.r + 8) return false;
     const ux = dx / d, uy = dy / d;
@@ -2410,9 +2515,162 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
       S.events.push({ type: "henkaWhiff", who: i, x: o.x, y: o.y });
     }
   }
+  function grabReach(S, i) {
+    const p = S.p[i], o = S.p[1 - i];
+    const dx = o.x - p.x, dy = o.y - p.y, d = Math.hypot(dx, dy) || 1;
+    return d <= p.r + o.r + GRAB_RANGE && (Math.cos(p.face) * dx + Math.sin(p.face) * dy) / d > GRAB_FACE;
+  }
+  function tryGrab(S, i) {
+    const p = S.p[i], o = S.p[1 - i];
+    if (S.clinch || p.grabCd > 0 || p.stun > 0 || p.dashT > 0 || p.utT >= 0 || o.utT >= 0 || p.henkaT > 0 || o.henkaT > 0) return;
+    const mx = (p.x + o.x) / 2, my = (p.y + o.y) / 2;
+    if (!grabReach(S, i)) {
+      p.grabCd = GRAB_MISS_CD;
+      S.events.push({ type: "grabMiss", who: i });
+      return;
+    }
+    p.grabCd = GRAB_CD;
+    if (charging(o)) {
+      p.stun = Math.max(p.stun, GRAB_FAIL_STUN);
+      p.guard = false;
+      S.events.push({ type: "grabFail", who: i, x: mx, y: my });
+      return;
+    }
+    S.clinch = { a: i, t: 0, thr: -1, ts: 1 };
+    for (const q of [p, o]) {
+      q.guard = false;
+      q.hold = false;
+      q.dashT = 0;
+      q.fakeT = 0;
+    }
+    const vx = (p.vx + o.vx) / 2, vy = (p.vy + o.vy) / 2;
+    p.vx = o.vx = vx;
+    p.vy = o.vy = vy;
+    S.events.push({ type: "grab", who: i, x: mx, y: my });
+  }
+  function endClinch(S) {
+    const K = S.clinch;
+    S.clinch = null;
+    S.p[K.a].grabCd = GRAB_CD;
+    for (const q of S.p) {
+      q.noRegen = false;
+      q.guard = false;
+    }
+  }
+  function clinchStep(S, cmds) {
+    const K = S.clinch, ai = K.a, a = S.p[ai], d = S.p[1 - ai], ca = cmds[ai], cd = cmds[1 - ai];
+    const dPressed = cd.guard && !d.gIn;
+    d.gIn = cd.guard;
+    a.gIn = ca.guard;
+    K.t += DT;
+    const dx = d.x - a.x, dy = d.y - a.y, l = Math.hypot(dx, dy) || 1, nx = dx / l, ny = dy / l;
+    const mx = (a.x + d.x) / 2, my = (a.y + d.y) / 2;
+    a.face = Math.atan2(ny, nx);
+    d.face = a.face + PI;
+    a.guard = false;
+    a.hold = d.hold = false;
+    a.noRegen = d.noRegen = true;
+    if (K.thr >= 0) {
+      a.vx = a.vy = d.vx = d.vy = 0;
+      if (dPressed && d.stamina > 0.2 && d.guardCd <= 0) {
+        endClinch(S);
+        a.stun = THROW_FAIL_STUN;
+        a.vx = -nx * 140;
+        a.vy = -ny * 140;
+        d.stamina = Math.max(0, d.stamina - 0.25);
+        S.events.push({ type: "throwCounter", who: 1 - ai, x: mx, y: my });
+        return;
+      }
+      K.thr += DT;
+      if (K.thr >= THROW_WIND) {
+        const sx = -ny * K.ts, sy = nx * K.ts, tx = sx * 0.75 + nx * 0.65, ty = sy * 0.75 + ny * 0.65, tl = Math.hypot(tx, ty);
+        endClinch(S);
+        d.vx = tx / tl * THROW_SPEED;
+        d.vy = ty / tl * THROW_SPEED;
+        d.face = Math.atan2(ty, tx);
+        d.stun = THROW_STUN;
+        d.nageT = 1.2;
+        d.squash = 1;
+        a.vx = -tx / tl * 90;
+        a.vy = -ty / tl * 90;
+        S.events.push({ type: "throw", who: ai, x: d.x, y: d.y });
+      }
+      return;
+    }
+    if (ca.dash && a.cd <= 0 && a.stun <= 0) {
+      let side2 = nx * ca.my - ny * ca.mx;
+      if (Math.abs(side2) < 0.25 * (Math.hypot(ca.mx, ca.my) || 1)) {
+        side2 = -ny * (d.x - C) + nx * (d.y - C) || 1;
+      }
+      K.ts = side2 > 0 ? 1 : -1;
+      K.thr = 0;
+      a.cd = DASH_CD;
+      a.vx = a.vy = d.vx = d.vy = 0;
+      S.events.push({ type: "throwStart", who: ai, x: d.x, y: d.y });
+      return;
+    }
+    if (cd.dash && d.cd <= 0 && d.stun <= 0) {
+      const ed = Math.hypot(d.x - C, d.y - C);
+      if (ed > S.ring - 40 && d.stamina >= 0.15) {
+        endClinch(S);
+        startUtchari(S, 1 - ai, cd);
+        return;
+      }
+      if (d.stamina >= 0.3) {
+        endClinch(S);
+        d.cd = DASH_CD;
+        d.stamina -= BREAK_COST;
+        a.vx -= nx * BREAK_PUSH;
+        a.vy -= ny * BREAK_PUSH;
+        a.stun = 0.25;
+        d.vx += nx * BREAK_PUSH * 0.3;
+        d.vy += ny * BREAK_PUSH * 0.3;
+        S.events.push({ type: "grabBreak", who: 1 - ai, x: mx, y: my });
+        return;
+      }
+    }
+    const dig = cd.guard && d.stamina > 0.05 && d.guardCd <= 0;
+    d.guard = dig;
+    const unit = (c) => {
+      const n = Math.hypot(c.mx, c.my);
+      return n > 0 ? [c.mx / n, c.my / n] : [0, 0];
+    };
+    const [ux, uy] = unit(ca), [vx, vy] = unit(cd);
+    const fa = CLINCH_PUSH * (a.stamina > 0.05 ? 1 : 0.5) * (a.stun > 0 ? 0 : 1);
+    const fd = CLINCH_RESIST * (dig ? CLINCH_DIG : 1) * (d.stun > 0 ? 0 : 1) * Math.max(0.45, 1 - K.t * 0.3);
+    const ax = (ux * fa + vx * fd) / 2, ay = (uy * fa + vy * fd) / 2;
+    a.vx += ax * DT;
+    a.vy += ay * DT;
+    d.vx += ax * DT;
+    d.vy += ay * DT;
+    a.stamina = Math.max(0, a.stamina - 0.3 * DT);
+    if (K.t >= CLINCH_MAX) {
+      endClinch(S);
+      a.vx -= nx * 160;
+      a.vy -= ny * 160;
+      d.vx += nx * 160;
+      d.vy += ny * 160;
+      S.events.push({ type: "grabRelease", x: mx, y: my });
+    }
+  }
+  function bindClinch(S) {
+    const K = S.clinch;
+    if (!K) return;
+    const a = S.p[K.a], d = S.p[1 - K.a];
+    const mx = (a.x + d.x) / 2, my = (a.y + d.y) / 2, dx = d.x - a.x, dy = d.y - a.y, l = Math.hypot(dx, dy) || 1, h = (a.r + d.r) / 2;
+    a.x = mx - dx / l * h;
+    a.y = my - dy / l * h;
+    d.x = mx + dx / l * h;
+    d.y = my + dy / l * h;
+    const vx = (a.vx + d.vx) / 2, vy = (a.vy + d.vy) / 2;
+    a.vx = d.vx = vx;
+    a.vy = d.vy = vy;
+    a.touchT = d.touchT = 0;
+  }
   function kimarite(S, w) {
     const win = S.p[w], los = S.p[1 - w];
     if (los.thrown) return "utchari";
+    if (los.nageT > 0) return "uwatenage";
     if (los.whiffT < 1.2) return "hatakikomi";
     const dx = win.x - los.x, dy = win.y - los.y, d = Math.hypot(dx, dy) || 1;
     if (los.touchT < 0.6 && (Math.cos(los.face) * dx + Math.sin(los.face) * dy) / d < -0.3) return "okuridashi";
@@ -2436,6 +2694,7 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
     const [a, b] = S.p;
     if (swinging(a) || swinging(b)) return;
     if (a.henkaT > 0 || b.henkaT > 0) return;
+    if (S.clinch) return;
     const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy), min = a.r + b.r;
     if (d >= min || d === 0) return;
     a.touchT = b.touchT = 0;
@@ -2492,8 +2751,17 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
     if (S.phase === "play") {
       S.roundT += DT;
       if (S.roundT > SHRINK_DELAY) S.ring = Math.max(RMIN, S.ring - DT * SHRINK_SPEED);
-      for (let i = 0; i < 2; i++) {
+      if (S.clinch) clinchStep(S, cmds);
+      else for (let i = 0; i < 2; i++) {
         const p = S.p[i], c = cmds[i], o = S.p[1 - i];
+        p.noRegen = false;
+        if (c.grab && !S.p.some(swinging)) {
+          tryGrab(S, i);
+          if (S.clinch) {
+            p.gIn = c.guard;
+            break;
+          }
+        }
         const guardPressed = c.guard && !p.gIn;
         p.gIn = c.guard;
         if (o.utT >= 0 && o.utT < UT_BRACE && guardPressed && p.guardCd <= 0 && p.stamina > 0.2) counterUtchari(S, 1 - i);
@@ -2518,6 +2786,7 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
     }
     integrate(S.p[0]);
     integrate(S.p[1]);
+    bindClinch(S);
     collide(S);
     updateHenka(S);
     for (const q of S.p) if (q.thrown && q.stun <= 0) q.thrown = false;
@@ -2533,11 +2802,13 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
         S.score[w]++;
         S.phase = "roundEnd";
         S.phaseT = 0;
+        const kim = kimarite(S, w);
+        if (S.clinch) endClinch(S);
         const loser = S.p[1 - w];
         loser.fallT = 0;
         loser.guard = false;
         loser.hold = false;
-        S.events.push({ type: "roundWin", who: w, x: loser.x, y: loser.y, kimarite: kimarite(S, w) });
+        S.events.push({ type: "roundWin", who: w, x: loser.x, y: loser.y, kimarite: kim });
       }
     } else if (S.phase === "roundEnd" && S.phaseT >= ROUND_END_T) {
       if (S.score[S.winner] >= S.win) {
@@ -2563,6 +2834,7 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
     mix(S.score[0]);
     mix(S.score[1]);
     mix(f(S.ring));
+    mix(S.clinch ? S.clinch.a + 1 : 0);
     for (const p of S.p) [p.x, p.y, p.vx, p.vy, p.face, p.stamina].forEach((v) => mix(f(v)));
     return (h >>> 0).toString(16);
   }
@@ -2907,7 +3179,8 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
     okuridashi: { name: "Okuridashi", fr: "poussé dehors par derrière" },
     hatakikomi: { name: "Hatakikomi", fr: "esquivé, emporté par son élan" },
     utchari: { name: "Utchari", fr: "pivot sur la paille" },
-    isamiashi: { name: "Isamiashi", fr: "sorti tout seul" }
+    isamiashi: { name: "Isamiashi", fr: "sorti tout seul" },
+    uwatenage: { name: "Uwatenage", fr: "projeté par la ceinture" }
   };
   var KIMARITE_IDS = Object.keys(KIMARITE);
   function kimariteText(k, verb = "par") {
@@ -5098,10 +5371,10 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
       qx = Math.round(c.mx / n * 100);
       qy = Math.round(c.my / n * 100);
     }
-    return qx + 128 << 16 | qy + 128 << 8 | (c.dash ? 1 : 0) | (c.feint ? 2 : 0) | (c.guard ? 4 : 0);
+    return qx + 128 << 16 | qy + 128 << 8 | (c.dash ? 1 : 0) | (c.feint ? 2 : 0) | (c.guard ? 4 : 0) | (c.grab ? 8 : 0);
   }
   function unpackIn(v) {
-    return { mx: (v >> 16 & 255) - 128, my: (v >> 8 & 255) - 128, dash: !!(v & 1), feint: !!(v & 2), guard: !!(v & 4) };
+    return { mx: (v >> 16 & 255) - 128, my: (v >> 8 & 255) - 128, dash: !!(v & 1), feint: !!(v & 2), guard: !!(v & 4), grab: !!(v & 8) };
   }
   var NO_IN = packIn(NOCMD);
   var DIRS = 64;
@@ -5109,11 +5382,11 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
   function localCmd(c) {
     if (!c.mx && !c.my) return packIn(c);
     const a = Math.round(Math.atan2(c.my, c.mx) / STEP) * STEP;
-    return packIn({ mx: Math.cos(a), my: Math.sin(a), dash: c.dash, feint: c.feint, guard: c.guard });
+    return packIn({ mx: Math.cos(a), my: Math.sin(a), dash: c.dash, feint: c.feint, guard: c.guard, grab: c.grab });
   }
 
   // src/game/replayfile.js
-  var REPLAY_VER = 3;
+  var REPLAY_VER = 4;
   var MAX_TICKS = 120 * 60 * 15;
   var MAX_ROUNDS = 64;
   var roundHead = (S) => ({ seed: S.seed | 0, signalAt: S.signalAt, score: S.score.slice(), round: S.round, rn: S.rn, tick: S.tick, n: 0, c: [[], []] });
@@ -5441,6 +5714,10 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
     e.preventDefault();
     latch[0].feint = true;
   });
+  $("tgrab").addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    latch[0].grab = true;
+  });
   var tg = $("tguard");
   tg.addEventListener("pointerdown", (e) => {
     e.preventDefault();
@@ -5477,13 +5754,13 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
       }
       guard = guard || touchGuard;
     }
-    const c = { mx: x, my: y, dash: latch[i].dash, feint: latch[i].feint, guard };
-    latch[i].dash = latch[i].feint = false;
+    const c = { mx: x, my: y, dash: latch[i].dash, feint: latch[i].feint, guard, grab: latch[i].grab };
+    latch[i].dash = latch[i].feint = latch[i].grab = false;
     return c;
   }
 
   // src/net/netcode.js
-  var NET_VER = 1;
+  var NET_VER = 2;
   var NET_DELAY = 2;
   var NET_MAX_AHEAD = 40;
   var NET_SYNC_EVERY = 60;
@@ -6834,6 +7111,37 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
         if (out(ev, 1)) return { reset: true, msg: "Sorti avant son utchari. Pousse-le en marchant, sans dash." };
         return null;
       }
+    },
+    {
+      id: "ceinture",
+      title: "La ceinture",
+      kanji: "四つ",
+      reps: 1,
+      goal: (k) => `L'apprenti se cache derrière sa garde. Colle-toi à lui avec ${k("move")}, puis ${k("grab")} pour attraper sa ceinture. Pousse-le dehors, ou ${k("dash")} pour le projeter.`,
+      learned: "La garde n’arrête pas une saisie, mais une charge, si : on ne saisit pas quelqu’un qui fonce sur soi. Tenu à ton tour : dash pour te dégager, ou utchari sur la paille ; contre une projection, hanches basses (garde) pendant son élan.",
+      setup(S, D) {
+        playNow(S);
+        put(S.p[0], C - 150, C, 0);
+        put(S.p[1], C + 90, C, PI);
+        D.grabbed = false;
+      },
+      dummy(S) {
+        const me = S.p[1];
+        if (S.clinch) return { ...NOCMD };
+        const home = { x: C + 90, y: C };
+        const c = dist(me, home) > 30 ? toward(me, home) : { ...NOCMD, mx: S.p[0].x - me.x, my: S.p[0].y - me.y };
+        return { ...c, guard: me.stamina > 0.3 && me.guardCd <= 0 };
+      },
+      check(S, ev, D) {
+        if (has(ev, "grab", 0)) {
+          D.grabbed = true;
+          return { info: "Mawashi ! Pousse-le dehors, ou dash pour le projeter." };
+        }
+        if (has(ev, "grabMiss", 0)) return { info: "Trop loin : colle-toi à lui, face à lui, puis saisis." };
+        if (out(ev, 1)) return D.grabbed ? { ok: true, msg: has(ev, "roundWin") && ev.find((e) => e.type === "roundWin").kimarite === "uwatenage" ? "Uwatenage !" : "Yorikiri !" } : { reset: true, msg: "Sorti, mais sans la ceinture. Saisis-le d’abord." };
+        if (out(ev, 0)) return { fail: true, msg: "C’est toi qui es sorti." };
+        return null;
+      }
     }
   ];
 
@@ -6856,7 +7164,7 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
       return `${keyName(BIND[0].up[0])} ou ${keyName(BIND[0].down[0])}`;
     }
     if (G.padFamily) return (PAD_GLYPHS[G.padFamily][PAD[action][0]] || ["?"])[0];
-    if (touchOnly) return { dash: "le bouton Dash", guard: "le bouton Garde", feint: "le bouton Feinte" }[action];
+    if (touchOnly) return { dash: "le bouton Dash", guard: "le bouton Garde", feint: "le bouton Feinte", grab: "le bouton Saisie" }[action];
     return keyName(BIND[0][action][0]);
   }
   function dojoMenu() {
@@ -6871,7 +7179,7 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
     showScreen({
       kanji: "道場",
       title: "Dojo",
-      lead: "Huit leçons courtes contre un apprenti. Chacune t’apprend une technique qui sert en combat.",
+      lead: "Neuf leçons courtes contre un apprenti. Chacune t’apprend une technique qui sert en combat.",
       body: [list(...btns, mbtn("Retour", null, false, menu, "quiet"))],
       focus: next >= 0 ? ".mbtn.primary" : void 0,
       back: menu
@@ -6994,7 +7302,8 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
     right: ["Droite", ""],
     dash: ["Dash", "Coup d’épaule. Au bord : utchari. De côté quand il charge : henka"],
     guard: ["Garde", "Maintenir. Contre l’utchari : hanches basses"],
-    feint: ["Feinte", "Faux dash"]
+    feint: ["Feinte", "Faux dash"],
+    grab: ["Saisie", "Attraper la ceinture au contact. Tenu : dash pour te dégager ; tenant : dash pour projeter"]
   };
   var SIDE = ["Rouge", "Bleu"];
   var padName = (k) => (PAD_GLYPHS[G.padFamily || "xbox"][k] || ["?"])[0];
@@ -7734,7 +8043,7 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
     G.flash = { text, color, t };
   }
   var fmtSec = (t) => `${t.toFixed(2).replace(".", ",")} s`;
-  var VFX = /* @__PURE__ */ new Set(["dash", "feint", "block", "hit", "roundWin", "holdStart", "slip", "utchariStart", "utchari", "utchariCounter", "henka", "henkaWhiff"]);
+  var VFX = /* @__PURE__ */ new Set(["dash", "feint", "block", "hit", "roundWin", "holdStart", "slip", "utchariStart", "utchari", "utchariCounter", "henka", "henkaWhiff", "grab", "grabFail", "grabMiss", "throwStart", "throw", "throwCounter", "grabBreak", "grabRelease"]);
   function playVfx(e) {
     switch (e.type) {
       case "dash":
@@ -7798,6 +8107,49 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
         Sound.hit(900);
         Sound.taiko(0.05, 95, 0.8);
         G.cheer = 3;
+        break;
+      case "grab":
+        G.shake = 6;
+        burst2(e.x, e.y, 12, "#f3e6c9");
+        Sound.hit(420);
+        Sound.taiko(0.02, 64, 0.5);
+        G.cheer = Math.max(G.cheer, 0.8);
+        break;
+      case "grabFail":
+        burst2(e.x, e.y, 10, "#e8d2a4");
+        Sound.block();
+        break;
+      case "grabMiss":
+        Sound.whoosh(0.08);
+        break;
+      case "throwStart":
+        Sound.taiko(0, 58, 0.7);
+        Sound.whoosh(0.3);
+        G.cheer = Math.max(G.cheer, 1);
+        break;
+      case "throw":
+        G.shake = 16;
+        burst2(e.x, e.y, 24, "#f3e6c9");
+        Sound.hit(850);
+        Sound.taiko(0.04, 90, 0.8);
+        G.cheer = 2.5;
+        break;
+      case "throwCounter":
+        G.shake = 10;
+        burst2(e.x, e.y, 18, "#fff3c4");
+        Sound.block();
+        Sound.taiko(0, 70, 0.6);
+        G.cheer = Math.max(G.cheer, 1.5);
+        break;
+      case "grabBreak":
+        G.shake = 8;
+        burst2(e.x, e.y, 14, "#e8d2a4");
+        Sound.hit(500);
+        Sound.whoosh(0.2);
+        break;
+      case "grabRelease":
+        burst2(e.x, e.y, 8, "#e8d2a4");
+        Sound.whoosh(0.15);
         break;
     }
   }
@@ -7893,6 +8245,23 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
         case "utchariCounter":
           G.stats[e.who].counter++;
           setFlash("Contré !", "#efe3c8", 1.1);
+          break;
+        case "grab":
+          G.stats[e.who].grab++;
+          setFlash("Mawashi !", pc, 0.8);
+          break;
+        case "grabFail":
+          setFlash("Trop tard : il charge", "#efe3c8", 0.9);
+          break;
+        case "throw":
+          G.stats[e.who].nage++;
+          break;
+        case "throwCounter":
+          G.stats[e.who].counter++;
+          setFlash("Contré !", "#efe3c8", 1.1);
+          break;
+        case "grabBreak":
+          setFlash("Dégagé !", pc, 0.8);
           break;
         case "roundWin":
           G.kimarite = e.kimarite;
@@ -8013,7 +8382,7 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
     G.replay = null;
     G.kimarite = null;
     latch.forEach((l) => {
-      l.dash = l.feint = false;
+      l.dash = l.feint = l.grab = false;
     });
   }
   function statsTable() {
@@ -8030,6 +8399,8 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
       ["Utchari", (st) => st.utchari],
       ["Utchari contrés", (st) => st.counter],
       ["Henka réussis", (st) => st.henka],
+      ["Saisies de la ceinture", (st) => st.grab],
+      ["Projections", (st) => st.nage],
       ["Prises gagnantes", (st) => st.kim.length ? [...new Set(st.kim)].map((k) => KIMARITE[k] ? KIMARITE[k].name : k).join(", ") : "–"],
       ["Meilleur départ", (st) => st.best == null ? "–" : fmtSec(st.best)]
     ];
@@ -8818,6 +9189,10 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
     for (let i = 0; i < 2; i++) {
       if (!isLocalHuman(S, i)) continue;
       const foe = S.p[1 - i];
+      if (S.clinch) {
+        drawClinchPrompt(S, i, alpha);
+        continue;
+      }
       if (foe.utT >= 0 && foe.utT < UT_BRACE) {
         drawCounterPrompt(S, i, alpha);
         continue;
@@ -8872,6 +9247,71 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
     ctx.fillRect(-w / 2, 20, w * left, 6);
     ctx.restore();
   }
+  function drawPrompt(S, i, alpha, text, action, color, bar2 = null, below = false) {
+    const p = S.p[i];
+    const x = p.px + (p.x - p.px) * alpha, y = p.py + (p.y - p.py) * alpha + (below ? 104 : -100);
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = '400 28px "Dela Gothic One", "Arial Black", sans-serif';
+    const pad = padForPlayer(keySlot(i));
+    const touchOnly = !pad && matchMedia("(hover: none) and (pointer: coarse)").matches;
+    const key = pad || touchOnly ? null : keyName(BIND[keySlot(i)][action][0]);
+    const label = key ? `${text} : ${key}` : text;
+    const w = ctx.measureText(label).width + (pad ? 56 : 0), h = bar2 == null ? 48 : 58;
+    ctx.fillStyle = "rgba(28,19,13,.86)";
+    ctx.beginPath();
+    ctx.roundRect(-w / 2 - 14, -24, w + 28, h, 10);
+    ctx.fill();
+    ctx.fillStyle = color;
+    ctx.fillText(label, pad ? -24 : 0, 1);
+    if (pad) drawPadGlyph(w / 2 - 20, 0, PAD[action][0], 18);
+    if (bar2 != null) {
+      ctx.globalAlpha = 0.25;
+      ctx.fillRect(-w / 2, 22, w, 6);
+      ctx.globalAlpha = 1;
+      ctx.fillRect(-w / 2, 22, w * Math.max(0, Math.min(1, bar2)), 6);
+    }
+    ctx.restore();
+  }
+  function drawClinchPrompt(S, i, alpha) {
+    const K = S.clinch, me = S.p[i];
+    if (K.a === i) {
+      if (K.thr < 0 && me.cd <= 0) drawPrompt(S, i, alpha, "Projeter", "dash", "#ffd166", 1 - K.t / CLINCH_MAX);
+      return;
+    }
+    if (K.thr >= 0) {
+      drawPrompt(S, i, alpha, "Hanches basses", "guard", "#ff9a7a", 1 - K.thr / THROW_WIND, true);
+      return;
+    }
+    if (me.cd > 0 || me.stun > 0) return;
+    const edge = Math.hypot(me.x - C, me.y - C) > S.ring - 40;
+    if (edge && me.stamina >= 0.15) drawPrompt(S, i, alpha, "Utchari", "dash", "#ffd166", null, true);
+    else if (me.stamina >= 0.3) drawPrompt(S, i, alpha, "Se dégager", "dash", "#efe3c8", null, true);
+  }
+  function drawClinch(S, alpha) {
+    const K = S.clinch;
+    if (!K) return;
+    const a = S.p[K.a], d = S.p[1 - K.a];
+    const ax = a.px + (a.x - a.px) * alpha, ay = a.py + (a.y - a.py) * alpha, dx = d.px + (d.x - d.px) * alpha, dy = d.py + (d.y - d.py) * alpha;
+    const mx = (ax + dx) / 2, my = (ay + dy) / 2, ang = Math.atan2(dy - ay, dx - ax);
+    ctx.save();
+    ctx.translate(mx, my);
+    ctx.rotate(ang);
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = K.thr >= 0 ? "rgba(255,120,80,.6)" : "rgba(255,209,102,.45)";
+    ctx.beginPath();
+    ctx.ellipse(0, 0, a.r + d.r + 30, a.r + 30, 0, 0, TAU);
+    ctx.stroke();
+    ctx.lineWidth = 8;
+    ctx.strokeStyle = K.thr >= 0 ? "#ff7a50" : "#ffd166";
+    const left = K.thr >= 0 ? 1 - K.thr / THROW_WIND : 1 - K.t / CLINCH_MAX;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, a.r + d.r + 30, a.r + 30, 0, -Math.PI / 2, -Math.PI / 2 + TAU * left);
+    ctx.stroke();
+    ctx.restore();
+  }
   function drawStartHint(S) {
     if (S.round !== 1) return;
     ctx.textAlign = "center";
@@ -8921,6 +9361,7 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
     drawCrowd();
     drawArenaUnder();
     if (S) {
+      drawClinch(S, alpha);
       drawPlayer(S.p[0], skinSheet(G.skins[0]), alpha);
       drawPlayer(S.p[1], skinSheet("bleu"), alpha);
     }
@@ -9033,10 +9474,10 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
 
   // src/input/keyboard.js
   var held = /* @__PURE__ */ new Set();
-  var latch = [{ dash: false, feint: false }, { dash: false, feint: false }];
-  var ACTIONS = ["up", "down", "left", "right", "dash", "guard", "feint"];
+  var latch = [{ dash: false, feint: false, grab: false }, { dash: false, feint: false, grab: false }];
+  var ACTIONS = ["up", "down", "left", "right", "dash", "guard", "feint", "grab"];
   var DEFAULT_BIND = [
-    { up: ["KeyW"], down: ["KeyS"], left: ["KeyA"], right: ["KeyD"], dash: ["Space"], guard: ["KeyE"], feint: ["KeyF"] },
+    { up: ["KeyW"], down: ["KeyS"], left: ["KeyA"], right: ["KeyD"], dash: ["Space"], guard: ["KeyE"], feint: ["KeyF"], grab: ["KeyR"] },
     {
       up: ["ArrowUp"],
       down: ["ArrowDown"],
@@ -9044,11 +9485,12 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
       right: ["ArrowRight"],
       dash: ["Enter", "NumpadEnter"],
       guard: ["ShiftRight", "Numpad0"],
-      feint: ["ControlRight", "Numpad1"]
+      feint: ["ControlRight", "Numpad1"],
+      grab: ["End", "Numpad2"]
     }
   ];
-  var PAD_ACTIONS = ["dash", "guard", "feint"];
-  var DEFAULT_PAD = { dash: [0], guard: [1, 4, 5, 6, 7], feint: [2, 3] };
+  var PAD_ACTIONS = ["dash", "guard", "feint", "grab"];
+  var DEFAULT_PAD = { dash: [0], guard: [1, 4, 5, 6, 7], feint: [2], grab: [3] };
   var KEYS_MAX = 2;
   var PAD_MAX = 5;
   var PAD_BINDABLE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11];
@@ -9069,6 +9511,11 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
       const list2 = Array.isArray(v) ? [...new Set(v.filter((k) => PAD_BINDABLE.includes(k)))].slice(0, PAD_MAX) : [];
       return [a, list2.length ? list2 : DEFAULT_PAD[a].slice()];
     }));
+    if (!(b.pad && b.pad.grab)) {
+      const f = PAD.feint.filter((k) => !PAD.grab.includes(k));
+      if (f.length) PAD.feint = f;
+      else PAD.grab = [];
+    }
     ALL_GAME_CODES = new Set(BIND.flatMap((x) => Object.values(x).flat()));
   }
   function resetBinds() {
@@ -9185,6 +9632,7 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
     for (let i = 0; i < 2; i++) for (const b of bindsFor(i)) {
       if (b.dash.includes(e.code)) latch[i].dash = true;
       if (b.feint.includes(e.code)) latch[i].feint = true;
+      if (b.grab.includes(e.code)) latch[i].grab = true;
     }
   });
   addEventListener("keyup", (e) => {
@@ -9303,6 +9751,7 @@ body.in-vs .hud, body.in-vs .touch, body.in-vs .dojo-panel { visibility: hidden;
       const edge = (list2) => list2.map((k) => padEdge(p, k)).some(Boolean);
       if (edge(PAD.dash)) latch[i].dash = true;
       if (edge(PAD.feint)) latch[i].feint = true;
+      if (edge(PAD.grab)) latch[i].grab = true;
     }
   }
   function moveFocus(dir) {

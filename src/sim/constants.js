@@ -25,13 +25,20 @@ const HOLD_MASS = 1.3;        // plus lourd à pousser quand on tient face au ce
 // Utchari : pivot autour du point de contact, l'adversaire est projeté dehors
 // UT_BRACE : il soulève l'adversaire ; pendant ce temps, l'adversaire peut baisser les hanches (sa garde) pour contrer
 const UT_BRACE = 0.28, UT_SWING = 0.22, UT_TOTAL = 0.62, UT_THROW = 520, UT_COST = 0.5, UT_FAIL_STUN = 0.5;
+// Saisie de la ceinture (mawashi) : au contact, on attrape la ceinture ; les deux lutteurs sont liés.
+// Celui qui tient pousse (yorikiri) ou projette sur le côté (nage, après un temps d'élan) ; l'autre
+// résiste, se dégage d'un coup d'épaule (dash), ou contre la projection en baissant les hanches (garde).
+const GRAB_RANGE = 18, GRAB_FACE = 0.55, GRAB_CD = 1.1, GRAB_MISS_CD = 0.45, GRAB_FAIL_STUN = 0.35;
+const CLINCH_MAX = 2.6, CLINCH_PUSH = 1400, CLINCH_RESIST = 800, CLINCH_DIG = 1.5, CLINCH_FRICTION = 4.2;
+const THROW_WIND = 0.26, THROW_SPEED = 470, THROW_STUN = 0.45, THROW_FAIL_STUN = 0.45;
+const BREAK_PUSH = 420, BREAK_COST = 0.45;
 const PI = Math.PI, TAU = PI * 2;
 const COLORS = { red: '#d2412f', blue: '#2f6fb3' };
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 export {
-  ACC, C, CHARGE_T, CHARGE_V, COLORS, DASH_CD, HENKA_POWER, HENKA_RANGE, HENKA_SIDE, HENKA_STUN, HENKA_WINDOW, DASH_IMPULSE, DASH_T, DT, EDGE_ZONE, FEINT_CD, FEINT_IMPULSE, FEINT_T,
+  ACC, BREAK_COST, BREAK_PUSH, C, CHARGE_T, CLINCH_DIG, CLINCH_FRICTION, CLINCH_MAX, CLINCH_PUSH, CLINCH_RESIST, GRAB_CD, GRAB_FACE, GRAB_FAIL_STUN, GRAB_MISS_CD, GRAB_RANGE, THROW_FAIL_STUN, THROW_SPEED, THROW_STUN, THROW_WIND, CHARGE_V, COLORS, DASH_CD, HENKA_POWER, HENKA_RANGE, HENKA_SIDE, HENKA_STUN, HENKA_WINDOW, DASH_IMPULSE, DASH_T, DT, EDGE_ZONE, FEINT_CD, FEINT_IMPULSE, FEINT_T,
   FRICTION, GUARD_MAX, HOLD_BRAKE, HOLD_DRAIN, HOLD_MASS, MATTA_STUN, MAXV, PI, R0, RMIN,
   ROUND_END_T, SHRINK_DELAY, SHRINK_SPEED, SIM_HZ, TACHIAI_BONUS, TACHIAI_WINDOW, TAU, UT_BRACE,
   UT_COST, UT_FAIL_STUN, UT_SWING, UT_THROW, UT_TOTAL, W, clamp,

@@ -34,6 +34,10 @@ Reste un fichier front pur (HTML/JS), aucun serveur.
   Ryōgoku : sanctuaire aux cerisiers, matsuri d'été (de nuit), temple d'automne,
   village sous la neige ; purement visuels, dessinés par le code. La carrière
   suit le calendrier des six basho et débloque leurs arènes au vestiaire.
+- **Fait : saisie de la ceinture.** Au contact, attraper le mawashi : lutte au
+  corps à corps (pousser, planter les hanches), projection (uwatenage) et ses
+  contres (hanches basses, se dégager, utchari sur la paille). Apprise à l'IA et
+  au dojo (9e leçon). Ralentis et jeu en ligne passent en version 4 / 2.
 - **Point de vigilance à anticiper dès maintenant** : garder la simulation
   aussi déterministe que possible (pas de `Math.random()` non seedé dans la
   boucle physique si évitable, dt fixe si possible). Ça ne sert à rien

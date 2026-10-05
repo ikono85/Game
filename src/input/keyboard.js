@@ -13,17 +13,17 @@ import { autoPause, toggleMute, togglePause } from '../ui/pause.js';
 import { watchNext, watchPause, watchSpeed } from '../game/watch.js';
 
 const held = new Set();
-const latch = [{ dash: false, feint: false }, { dash: false, feint: false }];
+const latch = [{ dash: false, feint: false, grab: false }, { dash: false, feint: false, grab: false }];
 // Touches par défaut ; le joueur peut tout changer dans « Commandes » (sauvegardé en local)
-const ACTIONS = ['up', 'down', 'left', 'right', 'dash', 'guard', 'feint'];
+const ACTIONS = ['up', 'down', 'left', 'right', 'dash', 'guard', 'feint', 'grab'];
 const DEFAULT_BIND = [
-  { up: ['KeyW'], down: ['KeyS'], left: ['KeyA'], right: ['KeyD'], dash: ['Space'], guard: ['KeyE'], feint: ['KeyF'] },
+  { up: ['KeyW'], down: ['KeyS'], left: ['KeyA'], right: ['KeyD'], dash: ['Space'], guard: ['KeyE'], feint: ['KeyF'], grab: ['KeyR'] },
   { up: ['ArrowUp'], down: ['ArrowDown'], left: ['ArrowLeft'], right: ['ArrowRight'],
-    dash: ['Enter', 'NumpadEnter'], guard: ['ShiftRight', 'Numpad0'], feint: ['ControlRight', 'Numpad1'] },
+    dash: ['Enter', 'NumpadEnter'], guard: ['ShiftRight', 'Numpad0'], feint: ['ControlRight', 'Numpad1'], grab: ['End', 'Numpad2'] },
 ];
 // Manette : boutons par action (position standard : 0 bas, 1 droite, 2 gauche, 3 haut, 4-7 gâchettes)
-const PAD_ACTIONS = ['dash', 'guard', 'feint'];
-const DEFAULT_PAD = { dash: [0], guard: [1, 4, 5, 6, 7], feint: [2, 3] };
+const PAD_ACTIONS = ['dash', 'guard', 'feint', 'grab'];
+const DEFAULT_PAD = { dash: [0], guard: [1, 4, 5, 6, 7], feint: [2], grab: [3] };
 const KEYS_MAX = 2, PAD_MAX = 5;
 const PAD_BINDABLE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11];      // pas Start (pause) ni la croix (déplacement)
 const RESERVED_CODES = new Set(['Escape']);
@@ -43,6 +43,8 @@ function loadBinds() {
     const list = Array.isArray(v) ? [...new Set(v.filter(k => PAD_BINDABLE.includes(k)))].slice(0, PAD_MAX) : [];
     return [a, list.length ? list : DEFAULT_PAD[a].slice()];
   }));
+  // ancienne sauvegarde (avant la saisie) : le bouton du haut servait à la feinte, il passe à la saisie
+  if (!(b.pad && b.pad.grab)) { const f = PAD.feint.filter(k => !PAD.grab.includes(k)); if (f.length) PAD.feint = f; else PAD.grab = []; }
   ALL_GAME_CODES = new Set(BIND.flatMap(x => Object.values(x).flat()));
 }
 function resetBinds() { BIND = structuredClone(DEFAULT_BIND); PAD = structuredClone(DEFAULT_PAD); storeBinds(); }
@@ -112,6 +114,7 @@ addEventListener('keydown', e => {
   for (let i = 0; i < 2; i++) for (const b of bindsFor(i)) {
     if (b.dash.includes(e.code)) latch[i].dash = true;
     if (b.feint.includes(e.code)) latch[i].feint = true;
+    if (b.grab.includes(e.code)) latch[i].grab = true;
   }
 });
 addEventListener('keyup', e => {

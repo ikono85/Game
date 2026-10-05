@@ -24,6 +24,7 @@ function pickFrame(p) {
     return [ROW.utchari, t < UT_BRACE + UT_SWING + 0.06 ? 6 : 7];
   }
   if (p.fallT >= 0) return [ROW.fall, Math.min(8, Math.floor(p.fallT * 10))];
+  if (p.noRegen) return [ROW.guard, 1 + (Math.floor(p.breath * 14) % 8)];   // à la ceinture : bras en avant, la poussière vole
   if (p.dashT > 0 || p.fakeT > 0) return [ROW.dash, Math.min(6, Math.floor((1 - Math.max(p.dashT, p.fakeT) / DASH_T) * 7))];
   if (p.guard || p.hold) return [ROW.guard, 1 + (Math.floor(p.breath * 12) % 8)];   // tenir au bord : talons plantés, poussière
   if (Math.hypot(p.vx, p.vy) > 40) return [ROW.walk, Math.floor(p.walk * 2.5) % 10];

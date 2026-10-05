@@ -1,6 +1,6 @@
 /**
- * Dojo : huit leçons courtes contre un apprenti, une par technique (dash, départ, garde, feinte, henka,
- * tenir au bord, utchari, hanches basses). Les leçons elles-mêmes sont dans dojolessons.js.
+ * Dojo : neuf leçons courtes contre un apprenti, une par technique (dash, départ, garde, feinte, henka,
+ * tenir au bord, utchari, hanches basses, ceinture). Les leçons elles-mêmes sont dans dojolessons.js.
  */
 import { Sound } from '../audio/sound.js';
 import { LESSONS } from './dojolessons.js';
@@ -36,7 +36,7 @@ function keyLabel(action) {
     return `${keyName(BIND[0].up[0])} ou ${keyName(BIND[0].down[0])}`;
   }
   if (G.padFamily) return (PAD_GLYPHS[G.padFamily][PAD[action][0]] || ['?'])[0];
-  if (touchOnly) return { dash: 'le bouton Dash', guard: 'le bouton Garde', feint: 'le bouton Feinte' }[action];
+  if (touchOnly) return { dash: 'le bouton Dash', guard: 'le bouton Garde', feint: 'le bouton Feinte', grab: 'le bouton Saisie' }[action];
   return keyName(BIND[0][action][0]);
 }
 
@@ -50,7 +50,7 @@ function dojoMenu() {
   showScreen({
     kanji: '道場',
     title: 'Dojo',
-    lead: 'Huit leçons courtes contre un apprenti. Chacune t’apprend une technique qui sert en combat.',
+    lead: 'Neuf leçons courtes contre un apprenti. Chacune t’apprend une technique qui sert en combat.',
     body: [list(...btns, mbtn('Retour', null, false, menu, 'quiet'))],
     focus: next >= 0 ? '.mbtn.primary' : undefined,
     back: menu,

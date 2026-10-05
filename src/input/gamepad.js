@@ -94,6 +94,7 @@ function pollPads() {
     const edge = list => list.map(k => padEdge(p, k)).some(Boolean);   // tous évalués : l'état « avant » reste à jour
     if (edge(PAD.dash)) latch[i].dash = true;
     if (edge(PAD.feint)) latch[i].feint = true;
+    if (edge(PAD.grab)) latch[i].grab = true;
   }
 }
 function moveFocus(dir) {

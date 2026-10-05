@@ -25,9 +25,9 @@ sauf en ligne) ; le bandeau du match est en plaques noires coupées en biais.
   un combat en une manche par jour. Majorité de victoires (kachi-koshi) =
   promotion, sinon rétrogradation. Les rangs débloquent des mawashi (ceintures)
   au Vestiaire. Progression sauvegardée en local (`localStorage`).
-- **Dojo** — huit leçons courtes contre un apprenti, une par technique : le dash,
+- **Dojo** — neuf leçons courtes contre un apprenti, une par technique : le dash,
   le départ (tachiai), la garde, la feinte, le henka, tenir au bord, l'utchari,
-  les hanches basses. Les leçons réussies sont sauvegardées en local.
+  les hanches basses, la ceinture. Les leçons réussies sont sauvegardées en local.
 - **Arènes** — en plus de la salle de Ryōgoku, quatre lieux en plein air,
   chacun avec sa propre carte : le sanctuaire aux cerisiers (torii, hall du
   sanctuaire, pique-niques sous les fleurs), le matsuri d'été (de nuit, entre les
@@ -97,7 +97,7 @@ d'environ 150 ms de ping, les corrections deviennent visibles.
 Toutes les touches se changent dans le menu **Commandes** : clique sur une
 touche (ou sur **+** pour en ajouter une seconde), puis appuie sur la nouvelle.
 Ça marche pour le clavier des deux joueurs et pour les boutons de manette
-(Dash, Garde, Feinte). Une touche déjà prise ailleurs est échangée avec
+(Dash, Garde, Feinte, Saisie). Une touche déjà prise ailleurs est échangée avec
 l'ancienne ; Échap reste la pause. Les réglages sont sauvegardés dans le
 navigateur, et « Touches par défaut » remet tout comme au départ.
 
@@ -109,11 +109,13 @@ Touches par défaut :
 | Dash | Espace | Entrée | A |
 | Garde (maintenir) | E | Maj droite / 0 pavé | B / gâchettes |
 | Feinte | F | Ctrl droit / 1 pavé | X |
+| Saisie de la ceinture | R | Fin / 2 pavé | Y |
 | Pause | Échap | Échap | Start |
 | Tenir au bord | Sur la paille, pousser vers le centre | idem | Stick vers le centre |
 | Henka (pas de côté) | Quand il charge : une direction sur le côté + Espace | côté + Entrée | côté + A |
 | Utchari | Au bord, quand il te pousse : Espace | Entrée | A |
-| Hanches basses (contre) | Quand on tente l'utchari sur toi : E | Maj droite | B |
+| Hanches basses (contre) | Quand on tente l'utchari ou une projection sur toi : E | Maj droite | B |
+| À la ceinture | Pousser avec la direction ; Espace : projeter (tenant) ou se dégager (tenu) | idem, Entrée | stick, A |
 
 Touche **M** : couper le son. Contre l'IA et en ligne, les deux jeux de
 touches contrôlent ton lutteur.
@@ -147,11 +149,22 @@ contact), c'est un dash normal ; contre une feinte, ton dash part droit devant.
 C'est légal mais mal vu : la foule siffle, et une victoire sur un henka ne fait
 pas voler les coussins.
 
+**Saisie de la ceinture (mawashi)** : au contact et face à l'adversaire, la
+touche Saisie attrape sa ceinture : les deux lutteurs restent collés (un anneau
+doré les entoure, il se referme en 2,6 s). La garde n'arrête pas une saisie ;
+une charge, si (on ne saisit pas quelqu'un qui fonce sur soi : la main glisse et
+l'on reste déséquilibré). Celui qui tient pousse avec sa direction (yorikiri)
+ou fait dash pour projeter sur le côté (uwatenage), après un court élan. Le
+tenu résiste avec sa direction, plante ses hanches en maintenant la garde (plus
+lourd, mais la jauge se vide), se dégage d'un coup d'épaule (dash), ou, sur la
+paille, tente l'utchari ; pendant l'élan de la projection, un appui sur la garde
+la fait échouer (« Hanches basses »).
+
 **Prises (kimarite)** : chaque manche gagnée affiche sa prise, aussi au ralenti,
 dans les stats et dans les ralentis partagés : oshidashi (sorti par une charge),
 yorikiri (poussé dehors au corps à corps), okuridashi (poussé par derrière),
-hatakikomi (esquivé par un henka), utchari (pivot au bord), isamiashi (sorti
-tout seul).
+hatakikomi (esquivé par un henka), utchari (pivot au bord), uwatenage
+(projeté par la ceinture), isamiashi (sorti tout seul).
 
 **Tachiai** : attends « Hakkeyoi ! ». Un dash juste après le signal pousse 30 %
 plus fort ; un dash avant le signal est un faux départ (matta) qui te fige un

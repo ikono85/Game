@@ -13,6 +13,7 @@ import { el, list, mbtn, showScreen } from './widgets.js';
 const ACTION_LABELS = {
   up: ['Haut', ''], down: ['Bas', ''], left: ['Gauche', ''], right: ['Droite', ''],
   dash: ['Dash', 'Coup d’épaule. Au bord : utchari. De côté quand il charge : henka'], guard: ['Garde', 'Maintenir. Contre l’utchari : hanches basses'], feint: ['Feinte', 'Faux dash'],
+  grab: ['Saisie', 'Attraper la ceinture au contact. Tenu : dash pour te dégager ; tenant : dash pour projeter'],
 };
 const SIDE = ['Rouge', 'Bleu'];
 const padName = k => (PAD_GLYPHS[G.padFamily || 'xbox'][k] || ['?'])[0];

@@ -3,7 +3,7 @@
  */
 import { C } from '../sim/constants.js';
 
-const newStats = () => ({ dash: 0, dashHit: 0, block: 0, feint: 0, matta: 0, best: null, hold: 0, utchari: 0, counter: 0, henka: 0, henkaTry: 0, kim: [] });
+const newStats = () => ({ dash: 0, dashHit: 0, block: 0, feint: 0, matta: 0, best: null, hold: 0, utchari: 0, counter: 0, henka: 0, henkaTry: 0, grab: 0, nage: 0, kim: [] });
 const G = {
   screen: 'menu',       // 'menu' | 'match'
   mode: null,           // 'versus' | 'ai' | 'career'

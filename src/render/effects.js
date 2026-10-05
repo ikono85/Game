@@ -23,7 +23,7 @@ function setFlash(text, color = '#efe3c8', t = 1) { G.flash = { text, color, t }
 const fmtSec = t => `${t.toFixed(2).replace('.', ',')} s`;
 
 /** Effets visuels et sons d'un événement ; rejoués tels quels pendant le ralenti. */
-const VFX = new Set(['dash', 'feint', 'block', 'hit', 'roundWin', 'holdStart', 'slip', 'utchariStart', 'utchari', 'utchariCounter', 'henka', 'henkaWhiff']);
+const VFX = new Set(['dash', 'feint', 'block', 'hit', 'roundWin', 'holdStart', 'slip', 'utchariStart', 'utchari', 'utchariCounter', 'henka', 'henkaWhiff', 'grab', 'grabFail', 'grabMiss', 'throwStart', 'throw', 'throwCounter', 'grabBreak', 'grabRelease']);
 function playVfx(e) {
   switch (e.type) {
     case 'dash': burst(e.x, e.y, 8, '#e8d2a4'); Sound.whoosh(0.28); break;
@@ -45,6 +45,14 @@ function playVfx(e) {
     case 'henka': burst(e.x, e.y, 10, '#e8d2a4'); Sound.whoosh(0.32); break;
     case 'henkaWhiff': burst(e.x, e.y, 14, '#e8d2a4'); Sound.boo(); break;   // la foule siffle : légal, mais mal vu
     case 'utchari': G.shake = 16; burst(e.x, e.y, 26, '#f3e6c9'); Sound.hit(900); Sound.taiko(0.05, 95, 0.8); G.cheer = 3; break;
+    case 'grab': G.shake = 6; burst(e.x, e.y, 12, '#f3e6c9'); Sound.hit(420); Sound.taiko(0.02, 64, 0.5); G.cheer = Math.max(G.cheer, 0.8); break;
+    case 'grabFail': burst(e.x, e.y, 10, '#e8d2a4'); Sound.block(); break;
+    case 'grabMiss': Sound.whoosh(0.08); break;
+    case 'throwStart': Sound.taiko(0, 58, 0.7); Sound.whoosh(0.3); G.cheer = Math.max(G.cheer, 1); break;
+    case 'throw': G.shake = 16; burst(e.x, e.y, 24, '#f3e6c9'); Sound.hit(850); Sound.taiko(0.04, 90, 0.8); G.cheer = 2.5; break;
+    case 'throwCounter': G.shake = 10; burst(e.x, e.y, 18, '#fff3c4'); Sound.block(); Sound.taiko(0, 70, 0.6); G.cheer = Math.max(G.cheer, 1.5); break;
+    case 'grabBreak': G.shake = 8; burst(e.x, e.y, 14, '#e8d2a4'); Sound.hit(500); Sound.whoosh(0.2); break;
+    case 'grabRelease': burst(e.x, e.y, 8, '#e8d2a4'); Sound.whoosh(0.15); break;
   }
 }
 
@@ -98,6 +106,11 @@ function handleEvents(S) {
       case 'henkaWhiff': G.stats[e.who].henka++; setFlash('Dans le vide !', '#efe3c8', 1); break;
       case 'utchari': G.stats[e.who].utchari++; setFlash('Utchari !', '#ffd166', 1.4); break;
       case 'utchariCounter': G.stats[e.who].counter++; setFlash('Contré !', '#efe3c8', 1.1); break;
+      case 'grab': G.stats[e.who].grab++; setFlash('Mawashi !', pc, 0.8); break;
+      case 'grabFail': setFlash('Trop tard : il charge', '#efe3c8', 0.9); break;
+      case 'throw': G.stats[e.who].nage++; break;
+      case 'throwCounter': G.stats[e.who].counter++; setFlash('Contré !', '#efe3c8', 1.1); break;
+      case 'grabBreak': setFlash('Dégagé !', pc, 0.8); break;
       case 'roundWin':
         G.kimarite = e.kimarite;
         if (e.kimarite) G.stats[e.who].kim.push(e.kimarite);

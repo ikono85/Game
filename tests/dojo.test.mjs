@@ -24,6 +24,12 @@ const GOOD = {
   tawara: S => ({ ...NOCMD, mx: S.tick > 36 ? 1 : 0 }),
   utchari: (S, M) => { if (canUtchari(S, 0) && M.seen == null) M.seen = S.tick; return { ...NOCMD, mx: 1, dash: M.seen != null && S.tick - M.seen > 30 }; },
   hanches: S => ({ ...NOCMD, mx: 1, guard: S.p[1].utT >= 0.12 && S.p[1].utT < UT_BRACE }),
+  ceinture: (S, M) => {
+    const c = { ...NOCMD, mx: S.p[1].x - S.p[0].x, my: S.p[1].y - S.p[0].y };
+    if (!S.clinch && near(S, 92) && M.g == null) { c.grab = true; M.g = S.tick; }
+    if (S.clinch) { c.mx = 1; c.my = 0; }
+    return c;
+  },
 };
 function attempt(L, player, maxSec = 12) {
   const D = {}, M = {};

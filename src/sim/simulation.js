@@ -5,7 +5,8 @@
  */
 import { aiMem } from './ai.js';
 import {
-  ACC, C, CHARGE_T, CHARGE_V, DASH_CD, HENKA_POWER, HENKA_RANGE, HENKA_SIDE, HENKA_STUN, HENKA_WINDOW, DASH_IMPULSE, DASH_T, DT, EDGE_ZONE, FEINT_CD, FEINT_IMPULSE, FEINT_T, FRICTION,
+  ACC, BREAK_COST, BREAK_PUSH, C, CHARGE_T, CLINCH_DIG, CLINCH_MAX, CLINCH_PUSH, CLINCH_RESIST, GRAB_CD, GRAB_FACE, GRAB_FAIL_STUN,
+  GRAB_MISS_CD, GRAB_RANGE, THROW_FAIL_STUN, THROW_SPEED, THROW_STUN, THROW_WIND, CHARGE_V, DASH_CD, HENKA_POWER, HENKA_RANGE, HENKA_SIDE, HENKA_STUN, HENKA_WINDOW, DASH_IMPULSE, DASH_T, DT, EDGE_ZONE, FEINT_CD, FEINT_IMPULSE, FEINT_T, FRICTION,
   GUARD_MAX, HOLD_BRAKE, HOLD_DRAIN, HOLD_MASS, MATTA_STUN, MAXV, PI, R0, RMIN, ROUND_END_T,
   SHRINK_DELAY, SHRINK_SPEED, TACHIAI_BONUS, TACHIAI_WINDOW, UT_BRACE, UT_COST, UT_FAIL_STUN,
   UT_SWING, UT_THROW, UT_TOTAL,
@@ -27,16 +28,18 @@ function makePlayer(x, y, face) {
     hold: false, holdTick: -99, holdTime: 0,                      // tenue au bord
     utT: -1, utS: 1, utMx: 0, utMy: 0, utFace: 0, thrown: false,  // utchari en cours (utT = temps écoulé)
     utReadyTick: -99, gIn: false,
-    touchT: 9, henkaT: 0, whiffT: 9, lockT: 0 };                              // dernier contact, henka en cours, passé dans le vide                                // gIn : touche de garde au tick précédent                                             // dernier instant où l'utchari était possible
+    touchT: 9, henkaT: 0, whiffT: 9, lockT: 0,
+    grabCd: 0, nageT: 0, noRegen: false };   // saisie : recharge, projeté par la ceinture, lié à l'autre
 }
 
-const NOCMD = Object.freeze({ mx: 0, my: 0, dash: false, feint: false, guard: false });
+const NOCMD = Object.freeze({ mx: 0, my: 0, dash: false, feint: false, guard: false, grab: false });
 
 /** cfg : { seed, win, ai: [profil|null, profil|null] } */
 function newMatch(cfg) {
   const S = { seed: cfg.seed | 0, tick: 0, score: [0, 0], round: 1, win: cfg.win,
     ai: cfg.ai || [null, null], mem: [null, null], events: [], phase: 'shikiri', phaseT: 0,
-    winner: -1, matchWinner: -1, p: null, ring: R0, roundT: 0, signalAt: 0, rn: 0 };   // rn : numéro de manche jouée (égalités comprises)
+    winner: -1, matchWinner: -1, p: null, ring: R0, roundT: 0, signalAt: 0, rn: 0,
+    clinch: null };   // clinch : { a: celui qui tient la ceinture, t, thr: élan de la projection (-1 sinon), ts: côté }   // rn : numéro de manche jouée (égalités comprises)
   startRound(S);
   return S;
 }
@@ -44,7 +47,7 @@ function newMatch(cfg) {
 function startRound(S) {
   S.p = [makePlayer(C - 150, C, 0), makePlayer(C + 150, C, PI)];
   S.rn++;
-  S.ring = R0; S.roundT = 0; S.phase = 'shikiri'; S.phaseT = 0; S.winner = -1;
+  S.ring = R0; S.roundT = 0; S.phase = 'shikiri'; S.phaseT = 0; S.winner = -1; S.clinch = null;
   S.signalAt = 1.4 + rand(S) * 1.1;           // moment du « Hakkeyoi », imprévisible
   S.mem = [S.ai[0] ? aiMem() : null, S.ai[1] ? aiMem() : null];
   S.events.push({ type: 'roundStart', round: S.round });
@@ -99,7 +102,7 @@ function integrate(p) {
   if (p.guard) {
     p.stamina -= DT;
     if (p.stamina <= 0) { p.guard = false; p.guardCd = 1.2; p.stamina = 0; }
-  } else if (!p.hold) {
+  } else if (!p.hold && !p.noRegen) {
     p.stamina = Math.min(GUARD_MAX, p.stamina + DT * 0.8);
     p.guardCd = Math.max(0, p.guardCd - DT);
   }
@@ -111,6 +114,7 @@ function integrate(p) {
   p.touchT += DT; p.whiffT += DT; p.lockT = Math.max(0, p.lockT - DT);
   p.fakeT = Math.max(0, p.fakeT - DT); p.fakeCd = Math.max(0, p.fakeCd - DT);
   p.stun = Math.max(0, p.stun - DT);
+  p.grabCd = Math.max(0, p.grabCd - DT); p.nageT = Math.max(0, p.nageT - DT);
   p.squash = Math.max(0, p.squash - DT * 4);
   p.walk += sp * DT / 45;
   p.breath += DT;
@@ -163,7 +167,7 @@ function updateHold(S, i, c) {
  */
 function utchariReady(S, i) {
   const p = S.p[i], o = S.p[1 - i];
-  if (S.phase !== 'play' || p.utT >= 0 || o.utT >= 0 || p.cd > 0 || p.stun > 0 || p.guard || p.stamina < 0.15) return false;
+  if (S.phase !== 'play' || S.clinch || p.utT >= 0 || o.utT >= 0 || p.cd > 0 || p.stun > 0 || p.guard || p.stamina < 0.15) return false;
   const ex = p.x - C, ey = p.y - C, dist = Math.hypot(ex, ey) || 1;
   if (dist < S.ring - 14) return false;                                 // il faut être sur les ballots
   const vout = (p.vx * ex + p.vy * ey) / dist;
@@ -181,7 +185,7 @@ function utchariReady(S, i) {
  */
 function canUtchari(S, i) {
   const p = S.p[i], o = S.p[1 - i];
-  if (S.phase !== 'play' || S.tick - p.utReadyTick > 54) return false;
+  if (S.phase !== 'play' || S.clinch || S.tick - p.utReadyTick > 54) return false;
   if (p.utT >= 0 || o.utT >= 0 || p.cd > 0 || p.stun > 0 || p.guard || p.stamina < 0.15) return false;
   if (o.guard && (Math.cos(o.face) * (p.x - o.x) + Math.sin(o.face) * (p.y - o.y)) > 0) return false;
   return Math.hypot(o.x - p.x, o.y - p.y) < p.r + o.r + 110 && Math.hypot(p.x - C, p.y - C) > S.ring - 50;
@@ -247,7 +251,7 @@ const swinging = p => p.utT >= 0 && p.utT < UT_BRACE + UT_SWING;
  */
 function canHenka(S, i, c) {
   const p = S.p[i], o = S.p[1 - i];
-  if (S.phase !== 'play' || p.cd > 0 || p.guard || p.stun > 0 || p.utT >= 0 || o.utT >= 0 || !charging(o)) return false;
+  if (S.phase !== 'play' || S.clinch || p.cd > 0 || p.guard || p.stun > 0 || p.utT >= 0 || o.utT >= 0 || !charging(o)) return false;
   const dx = p.x - o.x, dy = p.y - o.y, d = Math.hypot(dx, dy) || 1;
   if (d > p.r + o.r + HENKA_RANGE || d < p.r + o.r + 8) return false;   // trop loin, ou déjà au contact
   const ux = dx / d, uy = dy / d;
@@ -278,11 +282,134 @@ function updateHenka(S) {
 }
 
 /**
+ * Saisie de la ceinture (mawashi). Au contact, de face : la main attrape la ceinture, sauf s'il charge
+ * (sa charge passe avant la main : je reste déséquilibré). La garde ne protège pas d'une saisie : c'est
+ * la réponse à un adversaire qui reste caché derrière sa garde.
+ */
+function grabReach(S, i) {
+  const p = S.p[i], o = S.p[1 - i];
+  const dx = o.x - p.x, dy = o.y - p.y, d = Math.hypot(dx, dy) || 1;
+  return d <= p.r + o.r + GRAB_RANGE && (Math.cos(p.face) * dx + Math.sin(p.face) * dy) / d > GRAB_FACE;
+}
+function tryGrab(S, i) {
+  const p = S.p[i], o = S.p[1 - i];
+  if (S.clinch || p.grabCd > 0 || p.stun > 0 || p.dashT > 0 || p.utT >= 0 || o.utT >= 0 || p.henkaT > 0 || o.henkaT > 0) return;
+  const mx = (p.x + o.x) / 2, my = (p.y + o.y) / 2;
+  if (!grabReach(S, i)) { p.grabCd = GRAB_MISS_CD; S.events.push({ type: 'grabMiss', who: i }); return; }
+  p.grabCd = GRAB_CD;
+  if (charging(o)) {
+    p.stun = Math.max(p.stun, GRAB_FAIL_STUN); p.guard = false;
+    S.events.push({ type: 'grabFail', who: i, x: mx, y: my });
+    return;
+  }
+  S.clinch = { a: i, t: 0, thr: -1, ts: 1 };
+  for (const q of [p, o]) { q.guard = false; q.hold = false; q.dashT = 0; q.fakeT = 0; }
+  const vx = (p.vx + o.vx) / 2, vy = (p.vy + o.vy) / 2;
+  p.vx = o.vx = vx; p.vy = o.vy = vy;
+  S.events.push({ type: 'grab', who: i, x: mx, y: my });
+}
+function endClinch(S) {
+  const K = S.clinch;
+  S.clinch = null;
+  S.p[K.a].grabCd = GRAB_CD;
+  for (const q of S.p) { q.noRegen = false; q.guard = false; }
+}
+/**
+ * Un tick de lutte à la ceinture. Celui qui tient (a) pousse avec sa direction, ou lance la projection
+ * (dash) : un court élan, puis l'autre part sur le côté. Le tenu (d) résiste avec sa direction, plante
+ * ses hanches (garde maintenue : plus lourd, mais la jauge se vide), contre la projection pendant l'élan
+ * (appui sur la garde), se dégage d'un coup d'épaule (dash), ou, sur la paille, tente l'utchari.
+ */
+function clinchStep(S, cmds) {
+  const K = S.clinch, ai = K.a, a = S.p[ai], d = S.p[1 - ai], ca = cmds[ai], cd = cmds[1 - ai];
+  const dPressed = cd.guard && !d.gIn;
+  d.gIn = cd.guard; a.gIn = ca.guard;
+  K.t += DT;
+  const dx = d.x - a.x, dy = d.y - a.y, l = Math.hypot(dx, dy) || 1, nx = dx / l, ny = dy / l;
+  const mx = (a.x + d.x) / 2, my = (a.y + d.y) / 2;
+  a.face = Math.atan2(ny, nx); d.face = a.face + PI;
+  a.guard = false; a.hold = d.hold = false; a.noRegen = d.noRegen = true;
+  if (K.thr >= 0) {                                                  // élan de la projection
+    a.vx = a.vy = d.vx = d.vy = 0;
+    if (dPressed && d.stamina > 0.2 && d.guardCd <= 0) {             // hanches basses : la projection échoue
+      endClinch(S);
+      a.stun = THROW_FAIL_STUN; a.vx = -nx * 140; a.vy = -ny * 140;
+      d.stamina = Math.max(0, d.stamina - 0.25);
+      S.events.push({ type: 'throwCounter', who: 1 - ai, x: mx, y: my });
+      return;
+    }
+    K.thr += DT;
+    if (K.thr >= THROW_WIND) {
+      const sx = -ny * K.ts, sy = nx * K.ts, tx = sx * 0.75 + nx * 0.65, ty = sy * 0.75 + ny * 0.65, tl = Math.hypot(tx, ty);
+      endClinch(S);
+      d.vx = tx / tl * THROW_SPEED; d.vy = ty / tl * THROW_SPEED; d.face = Math.atan2(ty, tx);
+      d.stun = THROW_STUN; d.nageT = 1.2; d.squash = 1;
+      a.vx = -tx / tl * 90; a.vy = -ty / tl * 90;
+      S.events.push({ type: 'throw', who: ai, x: d.x, y: d.y });
+    }
+    return;
+  }
+  if (ca.dash && a.cd <= 0 && a.stun <= 0) {                         // il lance la projection
+    let side = nx * ca.my - ny * ca.mx;
+    if (Math.abs(side) < 0.25 * (Math.hypot(ca.mx, ca.my) || 1)) {    // pas de côté choisi : vers le bord le plus proche
+      side = -ny * (d.x - C) + nx * (d.y - C) || 1;
+    }
+    K.ts = side > 0 ? 1 : -1; K.thr = 0;
+    a.cd = DASH_CD; a.vx = a.vy = d.vx = d.vy = 0;
+    S.events.push({ type: 'throwStart', who: ai, x: d.x, y: d.y });
+    return;
+  }
+  if (cd.dash && d.cd <= 0 && d.stun <= 0) {
+    const ed = Math.hypot(d.x - C, d.y - C);
+    if (ed > S.ring - 40 && d.stamina >= 0.15) {                     // sur la paille : utchari
+      endClinch(S);
+      startUtchari(S, 1 - ai, cd);
+      return;
+    }
+    if (d.stamina >= 0.3) {                                          // coup d'épaule : il lâche prise
+      endClinch(S);
+      d.cd = DASH_CD; d.stamina -= BREAK_COST;
+      a.vx -= nx * BREAK_PUSH; a.vy -= ny * BREAK_PUSH; a.stun = 0.25;
+      d.vx += nx * BREAK_PUSH * 0.3; d.vy += ny * BREAK_PUSH * 0.3;
+      S.events.push({ type: 'grabBreak', who: 1 - ai, x: mx, y: my });
+      return;
+    }
+  }
+  // la lutte : chacun pousse ; le tenu peut planter ses hanches (garde) pour peser plus lourd
+  const dig = cd.guard && d.stamina > 0.05 && d.guardCd <= 0;
+  d.guard = dig;
+  const unit = c => { const n = Math.hypot(c.mx, c.my); return n > 0 ? [c.mx / n, c.my / n] : [0, 0]; };
+  const [ux, uy] = unit(ca), [vx, vy] = unit(cd);
+  const fa = CLINCH_PUSH * (a.stamina > 0.05 ? 1 : 0.5) * (a.stun > 0 ? 0 : 1);
+  const fd = CLINCH_RESIST * (dig ? CLINCH_DIG : 1) * (d.stun > 0 ? 0 : 1) * Math.max(0.45, 1 - K.t * 0.3);   // il fatigue
+  const ax = (ux * fa + vx * fd) / 2, ay = (uy * fa + vy * fd) / 2;
+  a.vx += ax * DT; a.vy += ay * DT; d.vx += ax * DT; d.vy += ay * DT;
+  a.stamina = Math.max(0, a.stamina - 0.3 * DT);                     // tenir la ceinture fatigue un peu
+  if (K.t >= CLINCH_MAX) {                                           // personne ne cède : on se sépare
+    endClinch(S);
+    a.vx -= nx * 160; a.vy -= ny * 160; d.vx += nx * 160; d.vy += ny * 160;
+    S.events.push({ type: 'grabRelease', x: mx, y: my });
+  }
+}
+/** Les deux lutteurs liés : collés l'un à l'autre, ils bougent ensemble. */
+function bindClinch(S) {
+  const K = S.clinch;
+  if (!K) return;
+  const a = S.p[K.a], d = S.p[1 - K.a];
+  const mx = (a.x + d.x) / 2, my = (a.y + d.y) / 2, dx = d.x - a.x, dy = d.y - a.y, l = Math.hypot(dx, dy) || 1, h = (a.r + d.r) / 2;
+  a.x = mx - dx / l * h; a.y = my - dy / l * h; d.x = mx + dx / l * h; d.y = my + dy / l * h;
+  const vx = (a.vx + d.vx) / 2, vy = (a.vy + d.vy) / 2;
+  a.vx = d.vx = vx; a.vy = d.vy = vy;
+  a.touchT = d.touchT = 0;
+}
+
+/**
  * Nom de la prise gagnante (kimarite), d'après la façon dont le perdant est sorti.
  */
 function kimarite(S, w) {
   const win = S.p[w], los = S.p[1 - w];
   if (los.thrown) return 'utchari';                                   // pivot au bord
+  if (los.nageT > 0) return 'uwatenage';                              // projeté par la ceinture (il y a moins de 1,2 s)
   if (los.whiffT < 1.2) return 'hatakikomi';                          // esquivé, emporté par son élan
   const dx = win.x - los.x, dy = win.y - los.y, d = Math.hypot(dx, dy) || 1;
   if (los.touchT < 0.6 && (Math.cos(los.face) * dx + Math.sin(los.face) * dy) / d < -0.3) return 'okuridashi';   // poussé de dos
@@ -313,6 +440,7 @@ function collide(S) {
   const [a, b] = S.p;
   if (swinging(a) || swinging(b)) return;      // pendant le pivot, les deux lutteurs bougent ensemble
   if (a.henkaT > 0 || b.henkaT > 0) return;    // pas de côté : il ne fait que le frôler et passe
+  if (S.clinch) return;                        // liés par la ceinture : voir bindClinch
   const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy), min = a.r + b.r;
   if (d >= min || d === 0) return;
   a.touchT = b.touchT = 0;
@@ -364,8 +492,11 @@ function step(S, cmds) {
   if (S.phase === 'play') {
     S.roundT += DT;
     if (S.roundT > SHRINK_DELAY) S.ring = Math.max(RMIN, S.ring - DT * SHRINK_SPEED);
-    for (let i = 0; i < 2; i++) {
+    if (S.clinch) clinchStep(S, cmds);
+    else for (let i = 0; i < 2; i++) {
       const p = S.p[i], c = cmds[i], o = S.p[1 - i];
+      p.noRegen = false;
+      if (c.grab && !S.p.some(swinging)) { tryGrab(S, i); if (S.clinch) { p.gIn = c.guard; break; } }
       const guardPressed = c.guard && !p.gIn; p.gIn = c.guard;
       // hanches basses : pendant que l'autre me soulève, un appui sur la garde fait échouer son utchari
       // (il faut appuyer pendant le soulevé : garder la touche enfoncée d'avance ne compte pas)
@@ -384,6 +515,7 @@ function step(S, cmds) {
   }
   if (S.phase === 'play' || S.phase === 'roundEnd') { updateUtchari(S, 0); updateUtchari(S, 1); }
   integrate(S.p[0]); integrate(S.p[1]);
+  bindClinch(S);
   collide(S);
   updateHenka(S);
 
@@ -396,9 +528,11 @@ function step(S, cmds) {
       const w = o1 ? 1 : 0;
       S.winner = w; S.score[w]++;
       S.phase = 'roundEnd'; S.phaseT = 0;
+      const kim = kimarite(S, w);
+      if (S.clinch) endClinch(S);
       const loser = S.p[1 - w];
       loser.fallT = 0; loser.guard = false; loser.hold = false;
-      S.events.push({ type: 'roundWin', who: w, x: loser.x, y: loser.y, kimarite: kimarite(S, w) });
+      S.events.push({ type: 'roundWin', who: w, x: loser.x, y: loser.y, kimarite: kim });
     }
   } else if (S.phase === 'roundEnd' && S.phaseT >= ROUND_END_T) {
     if (S.score[S.winner] >= S.win) {
@@ -413,9 +547,9 @@ function hashState(S) {
   const f = v => Math.round(v * 1000);
   let h = 2166136261;
   const mix = v => { h ^= v; h = Math.imul(h, 16777619); };
-  mix(S.tick); mix(S.seed); mix(S.score[0]); mix(S.score[1]); mix(f(S.ring));
+  mix(S.tick); mix(S.seed); mix(S.score[0]); mix(S.score[1]); mix(f(S.ring)); mix(S.clinch ? S.clinch.a + 1 : 0);
   for (const p of S.p) [p.x, p.y, p.vx, p.vy, p.face, p.stamina].forEach(v => mix(f(v)));
   return (h >>> 0).toString(16);
 }
 
-export { NOCMD, canHenka, canUtchari, charging, hashState, newMatch, rand, startRound, step, utchariReady };
+export { NOCMD, canHenka, canUtchari, charging, grabReach, hashState, newMatch, rand, startRound, step, utchariReady };

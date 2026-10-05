@@ -18,7 +18,7 @@ import { ARENA_IDS } from './arenalist.js';
 import { newMatch, startRound, step } from '../sim/simulation.js';
 
 // À augmenter quand la physique ou l'IA change : un vieux ralenti ne rejouerait plus le même combat.
-const REPLAY_VER = 3;
+const REPLAY_VER = 4;                   // 4 : la saisie de la ceinture (bit 8 des commandes)
 const MAX_TICKS = 120 * 60 * 15;          // 15 minutes de combat au plus
 const MAX_ROUNDS = 64;
 

@@ -75,7 +75,7 @@ function resetMatchFx() {
   G.screen = 'match'; G.paused = false; G.acc = 0; G.particles = []; G.flash = null; G.zabuton.length = 0;
   G.down = [false, false];
   G.stats = [newStats(), newStats()]; G.dashOpen = [false, false]; G.labels = []; G.rec = []; G.replay = null; G.kimarite = null;
-  latch.forEach(l => { l.dash = l.feint = false; });
+  latch.forEach(l => { l.dash = l.feint = l.grab = false; });
 }
 
 /** Tableau des stats du match, joueur par joueur. */
@@ -93,6 +93,8 @@ function statsTable() {
     ['Utchari', st => st.utchari],
     ['Utchari contrés', st => st.counter],
     ['Henka réussis', st => st.henka],
+    ['Saisies de la ceinture', st => st.grab],
+    ['Projections', st => st.nage],
     ['Prises gagnantes', st => st.kim.length ? [...new Set(st.kim)].map(k => KIMARITE[k] ? KIMARITE[k].name : k).join(', ') : '–'],
     ['Meilleur départ', st => st.best == null ? '–' : fmtSec(st.best)],
   ];

@@ -178,6 +178,26 @@ const LESSONS = [
       return null;
     },
   },
+  {
+    id: 'ceinture', title: 'La ceinture', kanji: '四つ', reps: 1,
+    goal: k => `L'apprenti se cache derrière sa garde. Colle-toi à lui avec ${k('move')}, puis ${k('grab')} pour attraper sa ceinture. Pousse-le dehors, ou ${k('dash')} pour le projeter.`,
+    learned: 'La garde n’arrête pas une saisie, mais une charge, si : on ne saisit pas quelqu’un qui fonce sur soi. Tenu à ton tour : dash pour te dégager, ou utchari sur la paille ; contre une projection, hanches basses (garde) pendant son élan.',
+    setup(S, D) { playNow(S); put(S.p[0], C - 150, C, 0); put(S.p[1], C + 90, C, PI); D.grabbed = false; },
+    dummy(S) {
+      const me = S.p[1];
+      if (S.clinch) return { ...NOCMD };                                      // une fois saisi, il se laisse faire
+      const home = { x: C + 90, y: C };
+      const c = dist(me, home) > 30 ? toward(me, home) : { ...NOCMD, mx: S.p[0].x - me.x, my: S.p[0].y - me.y };
+      return { ...c, guard: me.stamina > 0.3 && me.guardCd <= 0 };
+    },
+    check(S, ev, D) {
+      if (has(ev, 'grab', 0)) { D.grabbed = true; return { info: 'Mawashi ! Pousse-le dehors, ou dash pour le projeter.' }; }
+      if (has(ev, 'grabMiss', 0)) return { info: 'Trop loin : colle-toi à lui, face à lui, puis saisis.' };
+      if (out(ev, 1)) return D.grabbed ? { ok: true, msg: has(ev, 'roundWin') && ev.find(e => e.type === 'roundWin').kimarite === 'uwatenage' ? 'Uwatenage !' : 'Yorikiri !' } : { reset: true, msg: 'Sorti, mais sans la ceinture. Saisis-le d’abord.' };
+      if (out(ev, 0)) return { fail: true, msg: 'C’est toi qui es sorti.' };
+      return null;
+    },
+  },
 ];
 
 export { LESSONS };

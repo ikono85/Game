@@ -9,7 +9,7 @@ import { CROWD, FRAME, SPRITE_SIZE, pickFrame, sheetReady, skinSheet } from './s
 import { V, bgCache, crowdSeats, ensureBackground } from './view.js';
 import { sceneFor } from './scenes/index.js';
 import { drawArenaOver, drawArenaUnder } from './arenas.js';
-import { C, DASH_CD, GUARD_MAX, PI, R0, TAU, UT_BRACE } from '../sim/constants.js';
+import { C, CLINCH_MAX, DASH_CD, GUARD_MAX, PI, R0, TAU, THROW_WIND, UT_BRACE } from '../sim/constants.js';
 import { canUtchari } from '../sim/simulation.js';
 import { ctx } from '../ui/dom.js';
 
@@ -212,6 +212,7 @@ function drawUtchariPrompt(S, alpha) {
   for (let i = 0; i < 2; i++) {
     if (!isLocalHuman(S, i)) continue;
     const foe = S.p[1 - i];
+    if (S.clinch) { drawClinchPrompt(S, i, alpha); continue; }
     if (foe.utT >= 0 && foe.utT < UT_BRACE) { drawCounterPrompt(S, i, alpha); continue; }
     if (!canUtchari(S, i)) continue;
     const p = S.p[i];
@@ -250,6 +251,58 @@ function drawCounterPrompt(S, i, alpha) {
   if (pad) drawPadGlyph(w / 2 - 20, -2, PAD.guard[0], 18);
   ctx.fillStyle = 'rgba(255,154,122,.25)'; ctx.fillRect(-w / 2, 20, w, 6);
   ctx.fillStyle = '#ff9a7a'; ctx.fillRect(-w / 2, 20, w * left, 6);
+  ctx.restore();
+}
+
+/** Une invite au-dessus d'un lutteur : texte + touche (ou bouton de manette), et une barre facultative. */
+function drawPrompt(S, i, alpha, text, action, color, bar = null, below = false) {
+  const p = S.p[i];
+  const x = p.px + (p.x - p.px) * alpha, y = p.py + (p.y - p.py) * alpha + (below ? 104 : -100);
+  ctx.save(); ctx.translate(x, y);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = '400 28px "Dela Gothic One", "Arial Black", sans-serif';
+  const pad = padForPlayer(keySlot(i));
+  const touchOnly = !pad && matchMedia('(hover: none) and (pointer: coarse)').matches;
+  const key = pad || touchOnly ? null : keyName(BIND[keySlot(i)][action][0]);
+  const label = key ? `${text} : ${key}` : text;
+  const w = ctx.measureText(label).width + (pad ? 56 : 0), h = bar == null ? 48 : 58;
+  ctx.fillStyle = 'rgba(28,19,13,.86)';
+  ctx.beginPath(); ctx.roundRect(-w / 2 - 14, -24, w + 28, h, 10); ctx.fill();
+  ctx.fillStyle = color; ctx.fillText(label, pad ? -24 : 0, 1);
+  if (pad) drawPadGlyph(w / 2 - 20, 0, PAD[action][0], 18);
+  if (bar != null) {
+    ctx.globalAlpha = 0.25; ctx.fillRect(-w / 2, 22, w, 6);
+    ctx.globalAlpha = 1; ctx.fillRect(-w / 2, 22, w * Math.max(0, Math.min(1, bar)), 6);
+  }
+  ctx.restore();
+}
+/** À la ceinture : celui qui tient peut projeter ; le tenu peut se dégager, tenter l'utchari, ou contrer. */
+function drawClinchPrompt(S, i, alpha) {
+  const K = S.clinch, me = S.p[i];
+  if (K.a === i) {
+    if (K.thr < 0 && me.cd <= 0) drawPrompt(S, i, alpha, 'Projeter', 'dash', '#ffd166', 1 - K.t / CLINCH_MAX);
+    return;
+  }
+  // le tenu lit son invite sous son lutteur : à deux sur le même écran, les invites ne se chevauchent pas
+  if (K.thr >= 0) { drawPrompt(S, i, alpha, 'Hanches basses', 'guard', '#ff9a7a', 1 - K.thr / THROW_WIND, true); return; }
+  if (me.cd > 0 || me.stun > 0) return;
+  const edge = Math.hypot(me.x - C, me.y - C) > S.ring - 40;
+  if (edge && me.stamina >= 0.15) drawPrompt(S, i, alpha, 'Utchari', 'dash', '#ffd166', null, true);
+  else if (me.stamina >= 0.3) drawPrompt(S, i, alpha, 'Se dégager', 'dash', '#efe3c8', null, true);
+}
+/** Les deux lutteurs liés par la ceinture : un anneau doré autour d'eux, qui se referme avec le temps. */
+function drawClinch(S, alpha) {
+  const K = S.clinch;
+  if (!K) return;
+  const a = S.p[K.a], d = S.p[1 - K.a];
+  const ax = a.px + (a.x - a.px) * alpha, ay = a.py + (a.y - a.py) * alpha, dx = d.px + (d.x - d.px) * alpha, dy = d.py + (d.y - d.py) * alpha;
+  const mx = (ax + dx) / 2, my = (ay + dy) / 2, ang = Math.atan2(dy - ay, dx - ax);
+  ctx.save(); ctx.translate(mx, my); ctx.rotate(ang);
+  ctx.lineWidth = 6; ctx.strokeStyle = K.thr >= 0 ? 'rgba(255,120,80,.6)' : 'rgba(255,209,102,.45)';
+  ctx.beginPath(); ctx.ellipse(0, 0, a.r + d.r + 30, a.r + 30, 0, 0, TAU); ctx.stroke();
+  ctx.lineWidth = 8; ctx.strokeStyle = K.thr >= 0 ? '#ff7a50' : '#ffd166';
+  const left = K.thr >= 0 ? 1 - K.thr / THROW_WIND : 1 - K.t / CLINCH_MAX;
+  ctx.beginPath(); ctx.ellipse(0, 0, a.r + d.r + 30, a.r + 30, 0, -Math.PI / 2, -Math.PI / 2 + TAU * left); ctx.stroke();
   ctx.restore();
 }
 
@@ -296,7 +349,7 @@ function render(S, alpha, dt, cam) {
   drawRing(S ? S.ring : R0, S ? S.p : null);
   drawCrowd();
   drawArenaUnder();                                   // teinte de l'arène (printemps, nuit d'été…)
-  if (S) { drawPlayer(S.p[0], skinSheet(G.skins[0]), alpha); drawPlayer(S.p[1], skinSheet('bleu'), alpha); }
+  if (S) { drawClinch(S, alpha); drawPlayer(S.p[0], skinSheet(G.skins[0]), alpha); drawPlayer(S.p[1], skinSheet('bleu'), alpha); }
   for (const q of G.particles) {
     ctx.globalAlpha = Math.max(0, q.life * 1.6);
     ctx.fillStyle = q.color; ctx.fillRect(q.x - 3, q.y - 3, 6, 6);

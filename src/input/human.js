@@ -26,6 +26,7 @@ cv.addEventListener('pointermove', e => { if (e.pointerId === touch.id) [touch.x
 ['pointerup', 'pointercancel'].forEach(ev => addEventListener(ev, e => { if (e.pointerId === touch.id) touch.id = null; }));
 $('tdash').addEventListener('pointerdown', e => { e.preventDefault(); Sound.init(); latch[0].dash = true; });
 $('tfeint').addEventListener('pointerdown', e => { e.preventDefault(); latch[0].feint = true; });
+$('tgrab').addEventListener('pointerdown', e => { e.preventDefault(); latch[0].grab = true; });
 const tg = $('tguard');
 tg.addEventListener('pointerdown', e => { e.preventDefault(); touchGuard = true; });
 ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => tg.addEventListener(ev, () => { touchGuard = false; }));
@@ -47,8 +48,8 @@ function humanCmd(i, S) {
     }
     guard = guard || touchGuard;
   }
-  const c = { mx: x, my: y, dash: latch[i].dash, feint: latch[i].feint, guard };
-  latch[i].dash = latch[i].feint = false;
+  const c = { mx: x, my: y, dash: latch[i].dash, feint: latch[i].feint, guard, grab: latch[i].grab };
+  latch[i].dash = latch[i].feint = latch[i].grab = false;
   return c;
 }
 

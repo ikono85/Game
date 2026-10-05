@@ -3,7 +3,7 @@
  * commandes qu'un joueur, à partir de ce qu'un joueur peut voir.
  */
 import { C, DT, EDGE_ZONE, SIM_HZ, UT_BRACE, clamp } from './constants.js';
-import { NOCMD, canHenka, canUtchari, charging, rand } from './simulation.js';
+import { NOCMD, canHenka, canUtchari, charging, grabReach, rand } from './simulation.js';
 
 // Ce que l'IA a le droit de « voir » : positions, vitesses, orientation, garde,
 // jauges (affichées à l'écran), animation de dash/feinte. Pas fakeT vs dashT
@@ -14,6 +14,7 @@ const STYLES = {
     desc: "Fonce tout droit et dashe dès qu'il est aligné. Garde rarement, ignore les feintes.",
     rate: 5, react: 0.32, guardP: 0.3, read: 0, feintP: 0, dashRange: 260, aimCos: 0.8,
     edgeCare: 0.85, dodge: 0, tachiaiP: 0.55, mattaP: 0.18, flank: 0, patience: 0, adapt: 0, holdP: 0.15, utchariP: 0, counterP: 0,
+    grabP: 0.08, throwP: 0.25, breakP: 0.35, digP: 0.2,
   },
   kabe: {
     id: 'kabe', label: 'le Mur', stars: 2,
@@ -22,24 +23,28 @@ const STYLES = {
     // il tient tête au Pousseur, mais les lutteurs à trois étoiles trouvent la faille
     rate: 3, react: 0.25, guardP: 0.6, read: 0.1, guardHold: 0.55, feintP: 0, dashRange: 220, aimCos: 0.92,
     edgeCare: 0.5, dodge: 0, tachiaiP: 0.2, mattaP: 0.03, flank: 0, patience: 1, adapt: 0, center: true, holdP: 0.4, utchariP: 0, counterP: 0.6,
+    grabP: 0.4, throwP: 0.3, breakP: 0.25, digP: 0.75,
   },
   kitsune: {
     id: 'kitsune', label: 'le Renard', stars: 3,
     desc: "Feinte pour te faire garder, puis frappe quand ta garde est vide ou que tu lui tournes le dos.",
     rate: 6, react: 0.2, guardP: 0.55, read: 0.5, feintP: 0.45, dashRange: 240, aimCos: 0.9,
     edgeCare: 0.6, dodge: 0.1, tachiaiP: 0.4, mattaP: 0.05, flank: 0.6, patience: 0.6, adapt: 0, holdP: 0.55, utchariP: 0.07, counterP: 0.5, henkaP: 0.12,
+    grabP: 0.2, throwP: 0.55, breakP: 0.5, digP: 0.4,
   },
   mai: {
     id: 'mai', label: 'le Danseur', stars: 3,
     desc: "Tourne autour de toi, esquive tes charges d'un pas de côté (henka) au lieu de garder, et attend que tu sois près du bord.",
     rate: 9, react: 0.15, guardP: 0.45, read: 0.4, feintP: 0.15, dashRange: 250, aimCos: 0.9,
     edgeCare: 0.55, dodge: 0.4, tachiaiP: 0.25, mattaP: 0.04, flank: 0.3, patience: 0.5, adapt: 0, orbit: 220, orbitP: 0.35, holdP: 0.5, utchariP: 0.07, counterP: 0.4, henkaP: 0.45,
+    grabP: 0.1, throwP: 0.5, breakP: 0.65, digP: 0.3,
   },
   yokozuna: {
     id: 'yokozuna', label: 'le Yokozuna', stars: 5,
     desc: "Lit tes feintes, gère le bord, varie ses attaques et s'adapte à tes habitudes.",
     rate: 12, react: 0.1, guardP: 0.85, read: 0.85, feintP: 0.3, dashRange: 250, aimCos: 0.93,
     edgeCare: 0.55, dodge: 0.25, tachiaiP: 0.7, mattaP: 0.02, flank: 0.5, patience: 0.8, adapt: 1, holdP: 0.9, utchariP: 0.3, counterP: 0.85, henkaP: 0.15,
+    grabP: 0.32, throwP: 0.6, breakP: 0.7, digP: 0.6,
   },
 };
 const STYLE_ORDER = ['oshi', 'kabe', 'kitsune', 'mai', 'yokozuna'];
@@ -58,7 +63,8 @@ function aiMem() {
   return { nextDecide: 0, mx: 0, my: 0, wantDash: false, wantFeint: false, guardUntil: 0,
     reactAt: -1, reactKind: '', punishUntil: 0, lastAnim: false, dodgeDir: 1, dodgeUntil: 0, tachiaiAt: -1,
     mattaDone: false, guardsVsFeint: 0, feintsSeen: 0, blockedAt: -1, orbitDir: 1,
-    edgeRolled: false, holdOK: false, nextUt: 0, utSeen: -1, ctrAt: -1, ctrOK: false, henkaUntil: 0 };
+    edgeRolled: false, holdOK: false, nextUt: 0, utSeen: -1, ctrAt: -1, ctrOK: false, henkaUntil: 0,
+    clinchSeen: -1, clinchPlan: '', clinchAt: 0, digNow: false, thrCtrAt: -1, thrCtrOK: false };
 }
 
 /** Commande de l'IA : au bord, un dash serait un utchari ; l'IA ne le fait que si elle l'a décidé. */
@@ -73,7 +79,7 @@ function aiDecide(S, i) {
   if (!P || !m) return NOCMD;
   const me = S.p[i], foe = S.p[1 - i];
   const tk = S.tick;
-  const cmd = { mx: 0, my: 0, dash: false, feint: false, guard: false };
+  const cmd = { mx: 0, my: 0, dash: false, feint: false, guard: false, grab: false };
 
   if (S.phase === 'shikiri') {
     // Faux départ éventuel, sinon prépare la réaction au signal
@@ -93,6 +99,8 @@ function aiDecide(S, i) {
     return cmd;
   }
   m.ctrAt = -1;
+  if (S.clinch) return clinchDecide(S, i, P, m, cmd);
+  m.clinchSeen = -1; m.thrCtrAt = -1;
 
   if (S.roundT < DT * 0.5) {   // premier tick après le signal : tachiai ?
     m.tachiaiAt = rand(S) < P.tachiaiP ? tk + Math.round((P.react * (0.6 + rand(S) * 0.6)) * SIM_HZ) : -1;
@@ -230,6 +238,8 @@ function aiDecide(S, i) {
         P.id === 'kabe' ? (counter || foeNoDash || foeEdge > 0.8 || rand(S) < impatience * 0.5) :
         patience > 0 && !foeExposed ? rand(S) < (1 - patience) * 0.5 :
         rand(S) < 0.35 + 0.4 * P.level + (foeEdge > 0.75 ? 0.3 : 0));
+      // saisir la ceinture : au contact, de face, et surtout s'il se cache derrière sa garde
+      if (me.grabCd <= 0 && !charging(foe) && grabReach(S, i) && rand(S) < P.grabP * (foe.guard ? 1.6 : 1)) m.wantGrab = true;
       const foeCanUtchari = (foe.hold || foeEdge > 0.97) && foe.stamina > 0.8 && foe.cd <= 0;
       if (wantAttack && P.adapt && foeCanUtchari) { /* pas de dash : il avance et le colle pour vider sa jauge */ }
       else if (wantAttack) {
@@ -243,7 +253,50 @@ function aiDecide(S, i) {
   cmd.mx = m.mx; cmd.my = m.my;
   if (m.wantDash && me.cd <= 0) cmd.dash = true;
   if (m.wantFeint && me.fakeCd <= 0) cmd.feint = true;
-  m.wantDash = m.wantFeint = false;
+  if (m.wantGrab) { cmd.grab = true; cmd.dash = cmd.feint = false; }
+  m.wantDash = m.wantFeint = m.wantGrab = false;
+  return cmd;
+}
+
+/**
+ * Lutte à la ceinture. S'il tient : pousser vers le bord le plus proche de l'adversaire, et projeter
+ * quand il est près de la paille (ou quand le temps presse). S'il est tenu : résister vers le centre,
+ * planter les hanches, se dégager (ou tenter l'utchari sur la paille), et contrer la projection.
+ */
+function clinchDecide(S, i, P, m, cmd) {
+  const K = S.clinch, me = S.p[i], foe = S.p[1 - i], tk = S.tick;
+  const mx = me.x - C, my = me.y - C, md = Math.hypot(mx, my) || 1;
+  const fx = foe.x - C, fy = foe.y - C, fd = Math.hypot(fx, fy) || 1;
+  if (m.clinchSeen < 0) { m.clinchSeen = tk; m.clinchAt = tk + Math.round(P.react * SIM_HZ * (0.8 + rand(S) * 0.5)); m.clinchPlan = ''; }
+  if (K.a === i) {                                   // je tiens la ceinture
+    cmd.mx = fx / fd * 0.8 + (foe.x - me.x) / 80; cmd.my = fy / fd * 0.8 + (foe.y - me.y) / 80;
+    if (K.thr < 0 && me.cd <= 0 && tk >= m.clinchAt && tk >= m.nextDecide) {
+      m.nextDecide = tk + Math.max(1, Math.round(SIM_HZ / P.rate));
+      const near = fd / S.ring > 0.78, late = K.t > 1.9;
+      if ((near || late) && rand(S) < P.throwP * (near ? 0.55 : 0.3)) {
+        // projeter du côté qui l'envoie vers le bord
+        const dx = foe.x - me.x, dy = foe.y - me.y, l = Math.hypot(dx, dy) || 1, sx = -dy / l, sy = dx / l;
+        const side = sx * fx + sy * fy >= 0 ? 1 : -1;
+        cmd.mx = sx * side; cmd.my = sy * side; cmd.dash = true;
+      }
+    }
+    return cmd;
+  }
+  // je suis tenu
+  if (K.thr >= 0) {                                  // il prend son élan : baisser les hanches ?
+    if (m.thrCtrAt < 0) { m.thrCtrAt = tk + Math.round(P.react * SIM_HZ * (0.7 + rand(S) * 0.4)); m.thrCtrOK = rand(S) < (P.counterP || 0); }
+    if (m.thrCtrOK && tk >= m.thrCtrAt) cmd.guard = true;
+    return cmd;
+  }
+  m.thrCtrAt = -1;
+  cmd.mx = -mx / md; cmd.my = -my / md;              // résister vers le centre
+  const edge = md / S.ring;
+  if (tk >= m.clinchAt && tk >= m.nextDecide) {
+    m.nextDecide = tk + Math.max(1, Math.round(SIM_HZ / P.rate));
+    if (!m.clinchPlan) m.clinchPlan = rand(S) < P.digP ? 'dig' : 'free';
+    if (me.cd <= 0 && (edge > 0.7 || m.clinchPlan === 'free') && rand(S) < P.breakP * (edge > 0.7 ? 1.4 : 0.5)) { cmd.dash = true; return cmd; }
+  }
+  if (m.clinchPlan === 'dig' && me.stamina > 0.4 && edge > 0.45) cmd.guard = true;   // talons plantés près du bord
   return cmd;
 }
 

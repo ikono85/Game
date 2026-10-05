@@ -9,6 +9,7 @@ const KIMARITE = {
   hatakikomi: { name: 'Hatakikomi', fr: 'esquivé, emporté par son élan' },
   utchari: { name: 'Utchari', fr: 'pivot sur la paille' },
   isamiashi: { name: 'Isamiashi', fr: 'sorti tout seul' },
+  uwatenage: { name: 'Uwatenage', fr: 'projeté par la ceinture' },
 };
 const KIMARITE_IDS = Object.keys(KIMARITE);
 
