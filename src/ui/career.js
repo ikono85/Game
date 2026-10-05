@@ -2,7 +2,7 @@
  * Vestiaire et écrans de la carrière (basho, résultat du jour, classement de fin de basho).
  */
 import { Sound } from '../audio/sound.js';
-import { BASHO_DAYS, RANKS, arenaUnlocked, career, newBasho, syncArenas } from '../game/career.js';
+import { BASHO_DAYS, RANKS, arenaUnlocked, bashoOver, career, closeBasho, syncArenas } from '../game/career.js';
 import { ARENAS, arenaById, bashoOf, firstBashoFor } from '../game/arenalist.js';
 import { arenaPreview } from '../render/arenas.js';
 import { startMatch, statsTable } from '../game/match.js';
@@ -69,6 +69,8 @@ function wardrobe(backFn) {
 
 function careerHub() {
   const c = career(), b = c.basho;
+  // basho fini mais pas encore clos (page fermée avant « Voir le classement ») : on le clôt d'abord
+  if (bashoOver(c)) { bashoEnd(); return; }
   syncArenas();
   G.screen = 'menu'; G.mode = null;
   setNames('Rouge', 'Est', 'Bleu', 'Ouest'); updateScore();
@@ -99,6 +101,7 @@ function careerHub() {
 
 function careerBoutResult(won) {
   const c = career(), b = c.basho;
+  if (bashoOver(c)) { bashoEnd(); return; }          // les 7 combats sont déjà joués : rien à ajouter
   const o = b.opps[b.day];
   b.results.push(won ? 1 : 0);
   b.day++;
@@ -116,26 +119,10 @@ function careerBoutResult(won) {
 }
 
 function bashoEnd() {
-  const c = career(), b = c.basho;
-  const wins = b.results.filter(x => x).length, results = b.results.slice();
-  const before = c.rank, bestBefore = c.best;
-  let verdict, cls;
-  const perfect = wins === BASHO_DAYS, kachi = wins * 2 > BASHO_DAYS;
-  if (perfect) c.yusho++;
-  if (c.rank === 9) {                                  // un Yokozuna ne monte ni ne descend
-    cls = kachi ? 'up' : 'down';
-    verdict = perfect ? 'Sept victoires sur sept : un basho parfait pour le Yokozuna'
-      : kachi ? 'Plus de victoires que de défaites : le Yokozuna tient son rang'
-      : 'Plus de défaites que de victoires, mais un Yokozuna ne descend pas';
-  } else if (c.rank === 8 && wins >= 6) { c.rank = 9; verdict = 'Promu Yokozuna'; cls = 'up'; }
-  else if (c.rank === 8 && kachi) { verdict = 'Plus de victoires que de défaites : tu restes Ōzeki. Il en faut 6 pour devenir Yokozuna'; cls = 'up'; }
-  else if (perfect) { c.rank = Math.min(8, c.rank + 2); verdict = c.rank - before === 2 ? 'Sept victoires sur sept : tu montes de deux rangs' : 'Sept victoires sur sept : promotion'; cls = 'up'; }
-  else if (kachi) { c.rank++; verdict = 'Plus de victoires que de défaites : promotion'; cls = 'up'; }
-  else { c.rank = Math.max(0, c.rank - 1); verdict = before === 0 ? 'Plus de défaites que de victoires : tu restes Jonokuchi' : 'Plus de défaites que de victoires : rétrogradation'; cls = 'down'; }
-  c.best = Math.max(c.best, c.rank);
-  c.bashoNo++; c.basho = null; newBasho(c); persist();
-  const unlocked = SKINS.filter(s => s.rank > bestBefore && s.rank <= c.best);
-  const newArenas = syncArenas().map(id => arenaById(id).name); persist();
+  if (!bashoOver(career())) { careerHub(); return; }  // déjà clos (double appui) : retour au basho en cours
+  const { wins, results, verdict, cls, unlocked, newArenas: fresh } = closeBasho();
+  const c = career();
+  const newArenas = fresh.map(id => arenaById(id).name);
   const rk = RANKS[c.rank];
   const nb = bashoOf(c.bashoNo);
   showScreen({

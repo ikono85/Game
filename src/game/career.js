@@ -1,11 +1,12 @@
 /**
  * Carrière : rangs du banzuke, adversaires d'un basho, ceintures débloquées.
  */
-import { save } from './save.js';
+import { persist, save } from './save.js';
 import { SKINS } from '../render/sprites.js';
 import { clamp } from '../sim/constants.js';
 import { rand } from '../sim/simulation.js';
 import { ARENA_IDS, BASHO, bashoOf } from './arenalist.js';
+import { BASHO_DAYS, bashoOver, judgeBasho } from './banzuke.js';
 
 const RANKS = [
   { name: 'Jonokuchi', kanji: '序ノ口' }, { name: 'Jonidan', kanji: '序二段' }, { name: 'Sandanme', kanji: '三段目' },
@@ -13,7 +14,6 @@ const RANKS = [
   { name: 'Komusubi', kanji: '小結' }, { name: 'Sekiwake', kanji: '関脇' }, { name: 'Ōzeki', kanji: '大関' },
   { name: 'Yokozuna', kanji: '横綱' },
 ];
-const BASHO_DAYS = 7;
 // Noms de combat inventés
 const SHIKONA = ['Kumonami', 'Yukibashi', 'Tetsuiwa', 'Shiokaze', 'Kitsunebi', 'Harusame', 'Kazeguruma', 'Oboroumi',
   'Ishidatami', 'Hotarubi', 'Tsukikage', 'Kaminariyama', 'Kurogane', 'Sazanami', 'Mikazuki', 'Yamabiko', 'Ganseki', 'Shimotsuki'];
@@ -67,6 +67,18 @@ function pickArena() {
   return arenaUnlocked(pick) ? pick : 'ryogoku';
 }
 
-const unlockedSkins = () => SKINS.filter(s => s.rank <= (save.career ? save.career.best : 0));
+/**
+ * Clôt le basho terminé : rang, meilleur rang et yusho mis à jour, basho suivant tiré, ceintures et
+ * arènes débloquées, le tout sauvegardé avant tout affichage. Renvoie le bilan pour l'écran de fin.
+ */
+function closeBasho() {
+  const c = career();
+  const r = judgeBasho(c);
+  c.bashoNo++; c.basho = null; newBasho(c);
+  r.unlocked = SKINS.filter(s => s.rank > r.bestBefore && s.rank <= c.best);
+  r.newArenas = syncArenas();
+  persist();
+  return r;
+}
 
-export { BASHO_DAYS, RANKS, SHIKONA, arenaUnlocked, career, newBasho, pickArena, syncArenas };
+export { BASHO_DAYS, RANKS, SHIKONA, arenaUnlocked, bashoOver, career, closeBasho, newBasho, pickArena, syncArenas };
